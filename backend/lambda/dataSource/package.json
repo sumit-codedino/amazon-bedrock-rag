@@ -1,0 +1,13 @@
+{
+  "name": "data-source-lambda",
+  "version": "1.0.0",
+  "description": "Lambda function for managing Bedrock data sources",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-agent": "^3.0.0",
+    "@middy/core": "^3.0.0",
+    "@middy/http-json-body-parser": "^3.0.0",
+    "@middy/http-header-normalizer": "^3.0.0",
+    "winston": "^3.11.0"
+  }
+}

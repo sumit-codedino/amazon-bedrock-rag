@@ -2,65 +2,104 @@ const {
   BedrockAgentClient,
   UpdateDataSourceCommand,
   GetDataSourceCommand,
+  ListDataSourcesCommand,
 } = require("@aws-sdk/client-bedrock-agent");
+const winston = require("winston");
+const middy = require("@middy/core");
+const httpJsonBodyParser = require("@middy/http-json-body-parser");
+const httpHeaderNormalizer = require("@middy/http-header-normalizer");
+
+const logger = winston.createLogger({
+  level: process.env.LOG_LEVEL || "info",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    winston.format.json()
+  ),
+  defaultMeta: { service: "rag-app", function: "webUrlSources" },
+  transports: [
+    new winston.transports.Console({
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.simple()
+      ),
+    }),
+  ],
+});
 
 const client = new BedrockAgentClient({ region: process.env.AWS_REGION });
 
-exports.handler = async (event, context) => {
-  try {
-    const body = JSON.parse(event.body);
-    console.log("body", body);
-    const newUrlsList = body.urlList;
-    const newExclusionFilters = body.exclusionFilters
-    const newInclusionFilters = body.inclusionFilters
-
-    const input = {
-      knowledgeBaseId: process.env.KNOWLEDGE_BASE_ID, // required
-      dataSourceId: process.env.DATA_SOURCE_ID,
-      dataSourceName: process.env.DATA_SOURCE_NAME // required
-    };
-
-    const newSeedUrlList = newUrlsList.map((url) => {
-      return { url: url };
+exports.handler = middy()
+  .use(httpJsonBodyParser())
+  .use(httpHeaderNormalizer())
+  .handler(async (event, context) => {
+    const requestId = context.awsRequestId;
+    logger.info("WebUrlSources Lambda invoked", {
+      requestId,
+      event: {
+        path: event.path,
+        httpMethod: event.httpMethod,
+        headers: event.headers,
+      },
     });
-    const updateInput = {
-      knowledgeBaseId: input.knowledgeBaseId,
-      dataSourceId: input.dataSourceId,
-      name: input.dataSourceName,
-      dataSourceConfiguration: {
-        type: "WEB",
-        webConfiguration: {
-          sourceConfiguration: {
-            urlConfiguration: {
-              seedUrls: newSeedUrlList,
-            },
-          },
-          crawlerConfiguration: {
-            crawlerLimits: {
-              rateLimit: 50,
-            },
-            scope: "HOST_ONLY",
-            exclusionFilters: newExclusionFilters,
-            inclusionFilters: newInclusionFilters,
-          },
+
+    try {
+      logger.info("Listing web data sources", {
+        requestId,
+        knowledgeBaseId: process.env.KNOWLEDGE_BASE_ID,
+      });
+
+      const input = {
+        knowledgeBaseId: process.env.KNOWLEDGE_BASE_ID,
+      };
+
+      logger.debug("Bedrock request configuration", {
+        requestId,
+        input,
+      });
+
+      const command = new ListDataSourcesCommand(input);
+      const response = await client.send(command);
+
+      const webDataSources = response.dataSources.filter(
+        (ds) => ds.type === "WEB"
+      );
+
+      logger.info("Retrieved web data sources", {
+        requestId,
+        count: webDataSources.length,
+      });
+
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          dataSources: webDataSources,
+        }),
+        headers: {
+          "Access-Control-Allow-Origin": "*",
         },
-      },
-      dataDeletionPolicy: "DELETE",
-    };
+      };
+    } catch (err) {
+      logger.error("Error listing web data sources", {
+        requestId,
+        error: {
+          message: err.message,
+          name: err.name,
+          stack: err.stack,
+        },
+        event: {
+          body: event.body,
+          path: event.path,
+        },
+      });
 
-    console.log("update seed urls", newSeedUrlList);
-
-    const updateCommand = new UpdateDataSourceCommand(updateInput);
-    const updateResponse = await client.send(updateCommand);
-    console.log("update response", updateResponse);
-    return {
-      statusCode: 200,
-      body: JSON.stringify(updateResponse),
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-      },
-    };
-  } catch (e) {
-    console.log("Error", e);
-  }
-};
+      return {
+        statusCode: 500,
+        body: JSON.stringify({
+          error: "Server side error: please check function logs",
+        }),
+        headers: {
+          "Access-Control-Allow-Origin": "*",
+        },
+      };
+    }
+  });

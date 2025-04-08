@@ -1,0 +1,311 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: RAG Application Infrastructure
+
+Parameters:
+  KnowledgeBaseId:
+    Type: String
+    Default: SAZ2XA7OUY
+    Description: ID of the existing Bedrock Knowledge Base
+  AccountId:
+    Type: String
+    Description: AWS Account ID
+  KnowledgeBaseBucket:
+    Type: String
+    Default: arn:aws:s3:::open-search-service
+    Description: S3 bucket ARN for the knowledge base
+
+Resources:
+  # S3 Data Source
+  S3DataSource:
+    Type: AWS::Bedrock::DataSource
+    Properties:
+      Name: docs
+      Description: S3 data source for document ingestion
+      KnowledgeBaseId: !Ref KnowledgeBaseId
+      DataSourceConfiguration:
+        Type: S3
+        S3Configuration:
+          BucketArn: !Ref KnowledgeBaseBucket
+      VectorIngestionConfiguration:
+        ChunkingConfiguration:
+          ChunkingStrategy: FIXED_SIZE
+          FixedSizeChunkingConfiguration:
+            MaxTokens: 500
+            OverlapPercentage: 20
+
+  # Web Data Source
+  WebDataSource:
+    Type: AWS::Bedrock::DataSource
+    Properties:
+      Name: web-crawler
+      Description: Web crawler data source
+      KnowledgeBaseId: !Ref KnowledgeBaseId
+      DataSourceConfiguration:
+        Type: WEB
+        WebConfiguration:
+          CrawlerConfiguration:
+            CrawlerLimits:
+              MaxPages: 100
+              RateLimit: 1
+            ExclusionFilters:
+              - ".*\\.pdf$"
+              - ".*\\.doc$"
+              - ".*\\.docx$"
+            InclusionFilters:
+              - ".*\\.html$"
+              - ".*\\.htm$"
+              - ".*\\.txt$"
+            Scope: "HOST_ONLY"
+          SourceConfiguration:
+            UrlConfiguration:
+              SeedUrls:
+                - Url: "https://example.com"
+      VectorIngestionConfiguration:
+        ChunkingConfiguration:
+          ChunkingStrategy: FIXED_SIZE
+          FixedSizeChunkingConfiguration:
+            MaxTokens: 500
+            OverlapPercentage: 20
+
+  # Lambda Functions
+  CreateWebDataSourceLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: "create-web-data-source-lambda"
+      Runtime: nodejs18.x
+      Handler: index.handler
+      CodeUri: ./lambda/dataSource
+      Timeout: 60
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+      Events:
+        CustomResource:
+          Type: Api
+          Properties:
+            Path: /create-data-source
+            Method: post
+            RestApiId: !Ref KnowledgeBaseAPI
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:CreateDataSource
+                - bedrock:UpdateDataSource
+                - bedrock:DeleteDataSource
+              Resource: "*"
+
+  CreateWebDataSourceLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${CreateWebDataSourceLambda}"
+      RetentionInDays: 7
+
+  IngestLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: "ingest-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/ingest
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+          BUCKET_ARN: !Ref KnowledgeBaseBucket
+
+  IngestLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${IngestLambda}"
+      RetentionInDays: 7
+
+  # S3 Event Source for Ingest Lambda
+  IngestLambdaS3Event:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !GetAtt IngestLambda.Arn
+      Principal: s3.amazonaws.com
+      SourceArn: !Ref KnowledgeBaseBucket
+
+  CrawlLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: "crawl-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/crawl
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+          DATA_SOURCE_ID: !GetAtt WebDataSource.DataSourceId
+      Events:
+        ScheduleEvent:
+          Type: Schedule
+          Properties:
+            Schedule: rate(1 day)
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:StartIngestionJob
+              Resource: "*"
+
+  CrawlLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${CrawlLambda}"
+      RetentionInDays: 7
+
+  UpdateWebUrlsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: "update-web-urls-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/webUrlSources
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+          DATA_SOURCE_ID: !GetAtt WebDataSource.DataSourceId
+          DATA_SOURCE_NAME: WebCrawlerDataSource
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /web-urls
+            Method: post
+            RestApiId: !Ref KnowledgeBaseAPI
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:GetDataSource
+                - bedrock:UpdateDataSource
+              Resource: "*"
+
+  UpdateWebUrlsLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${UpdateWebUrlsLambda}"
+      RetentionInDays: 7
+
+  GetWebUrlsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: "get-web-urls-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/getUrls
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+          DATA_SOURCE_ID: !GetAtt WebDataSource.DataSourceId
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /urls
+            Method: get
+            RestApiId: !Ref KnowledgeBaseAPI
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:GetDataSource
+              Resource: "*"
+
+  GetWebUrlsLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${GetWebUrlsLambda}"
+      RetentionInDays: 7
+
+  QueryLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: "query-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/query
+      Timeout: 29
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+          ACCOUNT_ID: !Ref AccountId
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /docs
+            Method: post
+            RestApiId: !Ref KnowledgeBaseAPI
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:RetrieveAndGenerate
+                - bedrock:Retrieve
+                - bedrock:InvokeModel
+                - bedrock:GetInferenceProfile
+              Resource: "*"
+
+  QueryLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${QueryLambda}"
+      RetentionInDays: 7
+
+  ListDataSourcesLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: "list-data-sources-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/listDataSources
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Environment:
+        Variables:
+          KNOWLEDGE_BASE_ID: !Ref KnowledgeBaseId
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /data-sources
+            Method: get
+            RestApiId: !Ref KnowledgeBaseAPI
+
+  ListDataSourcesLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${ListDataSourcesLambda}"
+      RetentionInDays: 7
+
+  KnowledgeBaseAPI:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: dev
+      Name: knowledgebase-api
+      EndpointConfiguration:
+        Type: REGIONAL
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'*'"
+        AllowOrigin: "'*'"
+
+Outputs:
+  ApiGatewayUrl:
+    Description: API Gateway URL
+    Value: !Sub "https://${KnowledgeBaseAPI}.execute-api.${AWS::Region}.amazonaws.com/dev"
