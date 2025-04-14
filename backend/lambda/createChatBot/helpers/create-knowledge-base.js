@@ -1,25 +1,23 @@
-const {
-  BedrockAgentClient,
-  CreateKnowledgeBaseCommand,
-} = require("@aws-sdk/client-bedrock-agent");
+const path = require("path");
 
-const winston = require("winston");
+const isLambda = !!process.env.AWS_REGION;
+const basePath = isLambda
+  ? ""
+  : path.join(__dirname, "../../../layers/common/nodejs");
 
-const logger = winston.createLogger({
-  level: "info",
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-});
+const logger = require(isLambda
+  ? "utils/logger"
+  : path.join(basePath, "utils/logger"));
 
-const createKnowledgeBase = async (chatBotId) => {
+const createKnowledgeBase = require(isLambda
+  ? "aws/bedrock/create-knowledge-base"
+  : path.join(basePath, "aws/bedrock/create-knowledge-base"));
+
+module.exports = async (chatBotId) => {
   logger.info("Creating knowledge base for chatbot:", chatBotId);
 
   try {
-    const client = new BedrockAgentClient({ region: process.env.AWS_REGION });
-
-    const command = new CreateKnowledgeBaseCommand({
+    const params = {
       name: "knowledge-base-custom",
       description: "Knowledge Base for " + chatBotId,
       roleArn: process.env.KNOWLEDGE_BASE_ROLE_ARN,
@@ -48,12 +46,22 @@ const createKnowledgeBase = async (chatBotId) => {
           },
         },
       },
-    });
+    };
 
-    const response = await client.send(command);
-    logger.info("Knowledge base created:", response);
+    const result = await createKnowledgeBase(params);
 
-    const knowledgeBaseId = response.knowledgeBase.knowledgeBaseId;
+    if (result.isError) {
+      logger.error("Error creating knowledge base:", {
+        error: result.error,
+      });
+      return {
+        isError: true,
+        error: result.error,
+      };
+    }
+    logger.info("Knowledge base created:", result.data);
+
+    const knowledgeBaseId = result.data.knowledgeBase.knowledgeBaseId;
 
     return {
       isError: false,
@@ -70,8 +78,4 @@ const createKnowledgeBase = async (chatBotId) => {
       error: error.message,
     };
   }
-};
-
-module.exports = {
-  createKnowledgeBase,
 };

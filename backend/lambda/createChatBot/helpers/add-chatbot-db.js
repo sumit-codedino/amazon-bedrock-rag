@@ -1,15 +1,16 @@
-const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
+const path = require("path");
 
-const winston = require("winston");
+const isLambda = !!process.env.AWS_REGION;
+const basePath = isLambda
+  ? ""
+  : path.join(__dirname, "../../../layers/common/nodejs");
 
-const logger = winston.createLogger({
-  level: "info",
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-});
+const logger = require(isLambda
+  ? "utils/logger"
+  : path.join(basePath, "utils/logger"));
+const putDBItem = require(isLambda
+  ? "aws/dynamo-db/put-db-item"
+  : path.join(basePath, "aws/dynamo-db/put-db-item"));
 
 const addChatbotDB = async (chatBotId, name, description, knowledgeBaseId) => {
   logger.info("Updating chatbot in DynamoDB:", {
@@ -20,10 +21,7 @@ const addChatbotDB = async (chatBotId, name, description, knowledgeBaseId) => {
   });
 
   try {
-    const client = new DynamoDBClient({ region: process.env.AWS_REGION });
-    const docClient = DynamoDBDocumentClient.from(client);
-
-    const command = new PutCommand({
+    const params = {
       TableName: process.env.CHATBOT_TABLE_NAME,
       Item: {
         chatBotId,
@@ -32,9 +30,17 @@ const addChatbotDB = async (chatBotId, name, description, knowledgeBaseId) => {
         knowledgeBaseId,
         createdAt: new Date().toISOString(),
       },
-    });
+    };
 
-    await docClient.send(command);
+    const result = await putDBItem(params);
+
+    if (result.isError) {
+      logger.error("Error updating chatbot in DynamoDB:");
+      return {
+        isError: true,
+        error: result.error,
+      };
+    }
 
     return {
       isError: false,
@@ -53,6 +59,4 @@ const addChatbotDB = async (chatBotId, name, description, knowledgeBaseId) => {
   }
 };
 
-module.exports = {
-  addChatbotDB,
-};
+module.exports = addChatbotDB;

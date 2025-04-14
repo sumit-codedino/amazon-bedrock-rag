@@ -17,6 +17,30 @@ Parameters:
     Type: String
     Description: Stack Name
 Resources:
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName:
+        Fn::Sub: ${StackName}-common-layer
+      Description: Common utilities and services for all Lambda functions
+      ContentUri: s3://centexautotitle.net/rag/services/2f94b0a7431f7a469f84135f23240e1b
+      CompatibleRuntimes:
+      - nodejs20.x
+      RetentionPolicy: Delete
+    Metadata:
+      SamResourceId: CommonLayer
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName:
+        Fn::Sub: ${StackName}-dependencies-layer
+      Description: Dependencies layer for the Bedrock RAG project
+      ContentUri: s3://centexautotitle.net/rag/services/8ec8a636d811b7db2bb392498d6de894
+      CompatibleRuntimes:
+      - nodejs20.x
+      RetentionPolicy: Delete
+    Metadata:
+      SamResourceId: DependenciesLayer
   CreateWebDataSourceLambda:
     Type: AWS::Serverless::Function
     Properties:
@@ -24,7 +48,7 @@ Resources:
         Fn::Sub: ${StackName}-create-web-data-source-lambda
       Runtime: nodejs18.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/86ae6b3f640181f70210bd9a0afb5c2d
+      CodeUri: s3://centexautotitle.net/rag/services/af05647d1349da2ab3e7f37e5379779a
       Timeout: 60
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -61,7 +85,7 @@ Resources:
         Fn::Sub: ${StackName}-ingest-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/74dfd1ea85b72d45195a8b4e79e5fa68
+      CodeUri: s3://centexautotitle.net/rag/services/903e65d09ab782bf5c04df14494541e6
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -94,7 +118,7 @@ Resources:
         Fn::Sub: ${StackName}-query-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/123eb436c573da498833b0dc6cf14d8a
+      CodeUri: s3://centexautotitle.net/rag/services/4e6b808960ff3ab6384f792670a79545
       Timeout: 29
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -136,7 +160,7 @@ Resources:
         Fn::Sub: ${StackName}-list-data-sources-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/f63b668755ed1a545dfde7900b5b4aef
+      CodeUri: s3://centexautotitle.net/rag/services/6047208301d7b5fc07a26f805c07d425
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -165,12 +189,16 @@ Resources:
         Fn::Sub: ${StackName}-create-chat-bot-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/e5ea30b03b8e35b0514a48d8631021b1
+      CodeUri: s3://centexautotitle.net/rag/services/6e060643ed90ad2369a71b51f246f6c7
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
+      Layers:
+      - Ref: CommonLayer
+      - Ref: DependenciesLayer
       Environment:
         Variables:
+          NODE_PATH: /opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies
           CHATBOT_TABLE_NAME:
             Ref: ChatbotTable
           KNOWLEDGE_BASE_ROLE_ARN: arn:aws:iam::905418372486:role/service-role/AmazonBedrockExecutionRoleForKnowledgeBase_9umgz

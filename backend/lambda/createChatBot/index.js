@@ -1,14 +1,15 @@
-const winston = require("winston");
 const processor = require("./processor");
 const config = require("./config");
+const path = require("path");
 
-const logger = winston.createLogger({
-  level: config.LOG_LEVEL,
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-});
+const isLambda = !!process.env.AWS_REGION;
+const basePath = isLambda
+  ? ""
+  : path.join(__dirname, "../../../layers/common/nodejs");
+
+const logger = require(isLambda
+  ? "utils/logger"
+  : path.join(basePath, "utils/logger"));
 
 /**
  * Lambda handler for creating a new chatbot

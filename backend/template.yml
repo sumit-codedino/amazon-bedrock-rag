@@ -19,6 +19,26 @@ Parameters:
     Description: Stack Name
 
 Resources:
+  CommonLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${StackName}-common-layer"
+      Description: Common utilities and services for all Lambda functions
+      ContentUri: ./layers/common
+      CompatibleRuntimes:
+        - nodejs20.x
+      RetentionPolicy: Delete
+
+  DependenciesLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub "${StackName}-dependencies-layer"
+      Description: Dependencies layer for the Bedrock RAG project
+      ContentUri: ./layers/dependencies
+      CompatibleRuntimes:
+        - nodejs20.x
+      RetentionPolicy: Delete
+
   # Lambda Functions
   CreateWebDataSourceLambda:
     Type: AWS::Serverless::Function
@@ -144,8 +164,12 @@ Resources:
       CodeUri: ./lambda/createChatBot
       Timeout: 900
       Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Layers:
+        - !Ref CommonLayer
+        - !Ref DependenciesLayer
       Environment:
         Variables:
+          NODE_PATH: "/opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies"
           CHATBOT_TABLE_NAME: !Ref ChatbotTable
           KNOWLEDGE_BASE_ROLE_ARN: "arn:aws:iam::905418372486:role/service-role/AmazonBedrockExecutionRoleForKnowledgeBase_9umgz"
           EMBEDDING_MODEL_ARN: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"

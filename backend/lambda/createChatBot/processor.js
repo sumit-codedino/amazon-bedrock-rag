@@ -1,16 +1,18 @@
-const winston = require("winston");
+const path = require("path");
+
+const isLambda = !!process.env.AWS_REGION;
+const basePath = isLambda
+  ? ""
+  : path.join(__dirname, "../../../layers/common/nodejs");
+
+const logger = require(isLambda
+  ? "utils/logger"
+  : path.join(basePath, "utils/logger"));
+
 const { v4: uuidv4 } = require("uuid");
 const createNewKnowledgeBase = require("./helpers/create-knowledge-base.js");
 const addChatbotDB = require("./helpers/add-chatbot-db.js");
 const config = require("./config");
-
-const logger = winston.createLogger({
-  level: config.LOG_LEVEL,
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-});
 
 /**
  * Retry a function with exponential backoff
@@ -61,9 +63,6 @@ const createChatBot = async (
   logger.info("Starting chatbot creation process", {
     name,
     description,
-    dataSourcesCount: dataSources?.length || 0,
-    s3FilesCount: s3Files?.length || 0,
-    webUrlsCount: webUrls?.length || 0,
   });
 
   try {
