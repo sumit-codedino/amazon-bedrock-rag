@@ -30,7 +30,8 @@ sam deploy \
     --profile "${AWS_PROFILE}" \
     --parameter-overrides \
         AccountId="${ACCOUNT_ID}" \
-        KnowledgeBaseBucket="${KNOWLEDGE_BASE_BUCKET}"
+        KnowledgeBaseBucket="${KNOWLEDGE_BASE_BUCKET}" \
+        StackName="${STACK_NAME}"
 
 echo "Retrieving stack outputs..."
 API_URL=$(aws cloudformation describe-stacks \

@@ -1,27 +1,61 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { Button } from "../components/ui/Button";
 import { Card } from "../components/ui/Card";
+import DataSourceOptions from "./DataSourceOptions";
+import TextInput from "./TextInput";
+import S3Upload from "./S3Upload";
+import WebCrawlerConfig from "./WebCrawlerConfig";
+import ChatBotSummary from "./ChatBotSummary";
 
 interface ChatbotFormData {
   name: string;
   description: string;
   dataSources: string[];
+  s3Files?: File[];
+  webUrls?: string[];
 }
 
 const defaultFormData: ChatbotFormData = {
   name: "",
   description: "",
   dataSources: [],
+  s3Files: [],
+  webUrls: [],
 };
+
+type Step = "basic-info" | "s3-upload" | "web-crawler" | "review";
 
 export default function CreateChatbotPage() {
   const router = useRouter();
   const { isLoaded, isSignedIn } = useAuth();
   const [formData, setFormData] = useState<ChatbotFormData>(defaultFormData);
+  const [isFormValid, setIsFormValid] = useState(false);
+  const [currentStep, setCurrentStep] = useState<Step>("basic-info");
+
+  // Add validation effect
+  useEffect(() => {
+    let isValid = false;
+    switch (currentStep) {
+      case "basic-info":
+        isValid =
+          formData.name.trim() !== "" && formData.dataSources.length > 0;
+        break;
+      case "s3-upload":
+        isValid = Boolean(formData.s3Files?.length);
+        break;
+      case "web-crawler":
+        isValid = Boolean(formData.webUrls?.length);
+        break;
+      case "review":
+        isValid = true;
+        break;
+    }
+    setIsFormValid(isValid);
+  }, [formData, currentStep]);
 
   if (!isLoaded || !isSignedIn) {
     return null;
@@ -29,9 +63,36 @@ export default function CreateChatbotPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: Implement API call to create chatbot
-    console.log("Form submitted:", formData);
-    router.push("/chatbots");
+    if (currentStep === "review") {
+      // TODO: Implement API call to create chatbot
+      console.log("Form submitted:", formData);
+      router.push("/chatbots");
+    } else {
+      // Move to next step
+      const nextStep = getNextStep();
+      if (nextStep) {
+        setCurrentStep(nextStep);
+      }
+    }
+  };
+
+  const getNextStep = (): Step | null => {
+    const hasS3 = formData.dataSources.includes("Amazon S3");
+    const hasWeb = formData.dataSources.includes("Web Crawler");
+
+    switch (currentStep) {
+      case "basic-info":
+        if (hasS3) return "s3-upload";
+        if (hasWeb) return "web-crawler";
+        return null;
+      case "s3-upload":
+        if (hasWeb) return "web-crawler";
+        return "review";
+      case "web-crawler":
+        return "review";
+      default:
+        return null;
+    }
   };
 
   const handleChange = (
@@ -57,47 +118,58 @@ export default function CreateChatbotPage() {
     });
   };
 
-  const renderDataSourceOptions = () => (
-    <div>
-      <label
-        htmlFor="dataSources"
-        className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-      >
-        Data Sources
-      </label>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-        {[
-          "Amazon S3",
-          "Web Crawler",
-          "Custom",
-          "Confluence",
-          "Salesforce",
-          "Sharepoint",
-        ].map((source) => (
-          <div
-            key={source}
-            className="flex items-center p-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800"
-          >
-            <input
-              type="checkbox"
-              id={source}
-              name="dataSources"
-              value={source}
-              checked={formData.dataSources.includes(source)}
-              onChange={handleCheckboxChange}
-              className="mr-3"
+  const handleS3FilesChange = (files: File[]) => {
+    setFormData((prev) => ({ ...prev, s3Files: files }));
+  };
+
+  const handleWebUrlsChange = (urls: string[]) => {
+    setFormData((prev) => ({ ...prev, webUrls: urls }));
+  };
+
+  const renderStep = () => {
+    switch (currentStep) {
+      case "basic-info":
+        return (
+          <>
+            <TextInput
+              label="Name"
+              id="name"
+              value={formData.name}
+              onChange={handleChange}
+              placeholder="Enter chatbot name"
+              required
             />
-            <label
-              htmlFor={source}
-              className="text-sm font-medium text-gray-700 dark:text-gray-300"
-            >
-              {source}
-            </label>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
+
+            <TextInput
+              label="Description"
+              id="description"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder="Enter chatbot description"
+            />
+
+            <DataSourceOptions
+              selectedSources={formData.dataSources}
+              onChange={handleCheckboxChange}
+            />
+          </>
+        );
+      case "s3-upload":
+        return <S3Upload onFilesChange={handleS3FilesChange} />;
+      case "web-crawler":
+        return <WebCrawlerConfig onUrlsChange={handleWebUrlsChange} />;
+      case "review":
+        return (
+          <ChatBotSummary
+            name={formData.name}
+            description={formData.description}
+            dataSources={formData.dataSources}
+            s3Files={formData.s3Files}
+            webUrls={formData.webUrls}
+          />
+        );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
@@ -109,56 +181,24 @@ export default function CreateChatbotPage() {
 
           <Card>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div>
-                <label
-                  htmlFor="name"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  Name
-                </label>
-                <input
-                  type="text"
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter chatbot name"
-                />
-              </div>
+              {renderStep()}
 
-              <div>
-                <label
-                  htmlFor="description"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
-                >
-                  Description
-                </label>
-                <textarea
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleChange}
-                  required
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  placeholder="Enter chatbot description"
-                />
-              </div>
-
-              {renderDataSourceOptions()}
-
-              <div className="flex justify-end space-x-4">
+              <div className="flex justify-between space-x-4">
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => router.push("/chatbots")}
+                  onClick={() => {
+                    if (currentStep === "basic-info") {
+                      router.push("/chatbots");
+                    } else {
+                      setCurrentStep("basic-info");
+                    }
+                  }}
                 >
-                  Cancel
+                  {currentStep === "basic-info" ? "Cancel" : "Back"}
                 </Button>
-                <Button type="submit" variant="primary">
-                  Create Chatbot
+                <Button type="submit" variant="primary" disabled={!isFormValid}>
+                  {currentStep === "review" ? "Create Chatbot" : "Next"}
                 </Button>
               </div>
             </form>

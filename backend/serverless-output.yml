@@ -13,76 +13,21 @@ Parameters:
     Type: String
     Default: arn:aws:s3:::open-search-service
     Description: S3 bucket ARN for the knowledge base
+  StackName:
+    Type: String
+    Description: Stack Name
 Resources:
-  S3DataSource:
-    Type: AWS::Bedrock::DataSource
-    Properties:
-      Name: docs
-      Description: S3 data source for document ingestion
-      KnowledgeBaseId:
-        Ref: KnowledgeBaseId
-      DataSourceConfiguration:
-        Type: S3
-        S3Configuration:
-          BucketArn:
-            Ref: KnowledgeBaseBucket
-      VectorIngestionConfiguration:
-        ChunkingConfiguration:
-          ChunkingStrategy: FIXED_SIZE
-          FixedSizeChunkingConfiguration:
-            MaxTokens: 500
-            OverlapPercentage: 20
-    Metadata:
-      SamResourceId: S3DataSource
-  WebDataSource:
-    Type: AWS::Bedrock::DataSource
-    Properties:
-      Name: web-crawler
-      Description: Web crawler data source
-      KnowledgeBaseId:
-        Ref: KnowledgeBaseId
-      DataSourceConfiguration:
-        Type: WEB
-        WebConfiguration:
-          CrawlerConfiguration:
-            CrawlerLimits:
-              MaxPages: 100
-              RateLimit: 1
-            ExclusionFilters:
-            - .*\.pdf$
-            - .*\.doc$
-            - .*\.docx$
-            InclusionFilters:
-            - .*\.html$
-            - .*\.htm$
-            - .*\.txt$
-            Scope: HOST_ONLY
-          SourceConfiguration:
-            UrlConfiguration:
-              SeedUrls:
-              - Url: https://example.com
-      VectorIngestionConfiguration:
-        ChunkingConfiguration:
-          ChunkingStrategy: FIXED_SIZE
-          FixedSizeChunkingConfiguration:
-            MaxTokens: 500
-            OverlapPercentage: 20
-    Metadata:
-      SamResourceId: WebDataSource
   CreateWebDataSourceLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: create-web-data-source-lambda
+      FunctionName:
+        Fn::Sub: ${StackName}-create-web-data-source-lambda
       Runtime: nodejs18.x
       Handler: index.handler
       CodeUri: s3://centexautotitle.net/rag/services/86ae6b3f640181f70210bd9a0afb5c2d
       Timeout: 60
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
-      Environment:
-        Variables:
-          KNOWLEDGE_BASE_ID:
-            Ref: KnowledgeBaseId
       Events:
         CustomResource:
           Type: Api
@@ -105,14 +50,15 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName:
-        Fn::Sub: /aws/lambda/${CreateWebDataSourceLambda}
+        Fn::Sub: /aws/lambda/${StackName}-create-web-data-source-lambda
       RetentionInDays: 7
     Metadata:
       SamResourceId: CreateWebDataSourceLambdaLogGroup
   IngestLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: ingest-lambda
+      FunctionName:
+        Fn::Sub: ${StackName}-ingest-lambda
       Runtime: nodejs20.x
       Handler: index.handler
       CodeUri: s3://centexautotitle.net/rag/services/74dfd1ea85b72d45195a8b4e79e5fa68
@@ -121,162 +67,31 @@ Resources:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
       Environment:
         Variables:
-          KNOWLEDGE_BASE_ID:
-            Ref: KnowledgeBaseId
           BUCKET_ARN:
             Ref: KnowledgeBaseBucket
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /ingest
+            Method: post
+            RestApiId:
+              Ref: KnowledgeBaseAPI
     Metadata:
       SamResourceId: IngestLambda
   IngestLambdaLogGroup:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName:
-        Fn::Sub: /aws/lambda/${IngestLambda}
+        Fn::Sub: /aws/lambda/${StackName}-ingest-lambda
       RetentionInDays: 7
     Metadata:
       SamResourceId: IngestLambdaLogGroup
-  IngestLambdaS3Event:
-    Type: AWS::Lambda::Permission
-    Properties:
-      Action: lambda:InvokeFunction
-      FunctionName:
-        Fn::GetAtt:
-        - IngestLambda
-        - Arn
-      Principal: s3.amazonaws.com
-      SourceArn:
-        Ref: KnowledgeBaseBucket
-    Metadata:
-      SamResourceId: IngestLambdaS3Event
-  CrawlLambda:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: crawl-lambda
-      Runtime: nodejs20.x
-      Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/5948b2d70809e69fd3cd2f500e49b6f6
-      Timeout: 900
-      Role:
-        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
-      Environment:
-        Variables:
-          KNOWLEDGE_BASE_ID:
-            Ref: KnowledgeBaseId
-          DATA_SOURCE_ID:
-            Fn::GetAtt:
-            - WebDataSource
-            - DataSourceId
-      Events:
-        ScheduleEvent:
-          Type: Schedule
-          Properties:
-            Schedule: rate(1 day)
-      Policies:
-      - Statement:
-        - Effect: Allow
-          Action:
-          - bedrock:StartIngestionJob
-          Resource: '*'
-    Metadata:
-      SamResourceId: CrawlLambda
-  CrawlLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName:
-        Fn::Sub: /aws/lambda/${CrawlLambda}
-      RetentionInDays: 7
-    Metadata:
-      SamResourceId: CrawlLambdaLogGroup
-  UpdateWebUrlsLambda:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: update-web-urls-lambda
-      Runtime: nodejs20.x
-      Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/c692a23658d43882e78e4e3fe8dbc0c8
-      Timeout: 900
-      Role:
-        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
-      Environment:
-        Variables:
-          KNOWLEDGE_BASE_ID:
-            Ref: KnowledgeBaseId
-          DATA_SOURCE_ID:
-            Fn::GetAtt:
-            - WebDataSource
-            - DataSourceId
-          DATA_SOURCE_NAME: WebCrawlerDataSource
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Path: /web-urls
-            Method: post
-            RestApiId:
-              Ref: KnowledgeBaseAPI
-      Policies:
-      - Statement:
-        - Effect: Allow
-          Action:
-          - bedrock:GetDataSource
-          - bedrock:UpdateDataSource
-          Resource: '*'
-    Metadata:
-      SamResourceId: UpdateWebUrlsLambda
-  UpdateWebUrlsLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName:
-        Fn::Sub: /aws/lambda/${UpdateWebUrlsLambda}
-      RetentionInDays: 7
-    Metadata:
-      SamResourceId: UpdateWebUrlsLambdaLogGroup
-  GetWebUrlsLambda:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: get-web-urls-lambda
-      Runtime: nodejs20.x
-      Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/ace800198b907f657b01d67eeb71c49b
-      Timeout: 900
-      Role:
-        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
-      Environment:
-        Variables:
-          KNOWLEDGE_BASE_ID:
-            Ref: KnowledgeBaseId
-          DATA_SOURCE_ID:
-            Fn::GetAtt:
-            - WebDataSource
-            - DataSourceId
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Path: /urls
-            Method: get
-            RestApiId:
-              Ref: KnowledgeBaseAPI
-      Policies:
-      - Statement:
-        - Effect: Allow
-          Action:
-          - bedrock:GetDataSource
-          Resource: '*'
-    Metadata:
-      SamResourceId: GetWebUrlsLambda
-  GetWebUrlsLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName:
-        Fn::Sub: /aws/lambda/${GetWebUrlsLambda}
-      RetentionInDays: 7
-    Metadata:
-      SamResourceId: GetWebUrlsLambdaLogGroup
   QueryLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: query-lambda
+      FunctionName:
+        Fn::Sub: ${StackName}-query-lambda
       Runtime: nodejs20.x
       Handler: index.handler
       CodeUri: s3://centexautotitle.net/rag/services/123eb436c573da498833b0dc6cf14d8a
@@ -285,8 +100,6 @@ Resources:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
       Environment:
         Variables:
-          KNOWLEDGE_BASE_ID:
-            Ref: KnowledgeBaseId
           ACCOUNT_ID:
             Ref: AccountId
       Events:
@@ -312,24 +125,21 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName:
-        Fn::Sub: /aws/lambda/${QueryLambda}
+        Fn::Sub: /aws/lambda/${StackName}-query-lambda
       RetentionInDays: 7
     Metadata:
       SamResourceId: QueryLambdaLogGroup
   ListDataSourcesLambda:
     Type: AWS::Serverless::Function
     Properties:
-      FunctionName: list-data-sources-lambda
+      FunctionName:
+        Fn::Sub: ${StackName}-list-data-sources-lambda
       Runtime: nodejs20.x
       Handler: index.handler
       CodeUri: s3://centexautotitle.net/rag/services/f63b668755ed1a545dfde7900b5b4aef
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
-      Environment:
-        Variables:
-          KNOWLEDGE_BASE_ID:
-            Ref: KnowledgeBaseId
       Events:
         ApiEvent:
           Type: Api
@@ -344,15 +154,87 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName:
-        Fn::Sub: /aws/lambda/${ListDataSourcesLambda}
+        Fn::Sub: /aws/lambda/${StackName}-list-data-sources-lambda
       RetentionInDays: 7
     Metadata:
       SamResourceId: ListDataSourcesLambdaLogGroup
+  CreateChatBotLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-create-chat-bot-lambda
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: s3://centexautotitle.net/rag/services/e5ea30b03b8e35b0514a48d8631021b1
+      Timeout: 900
+      Role:
+        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
+      Environment:
+        Variables:
+          CHATBOT_TABLE_NAME:
+            Ref: ChatbotTable
+          KNOWLEDGE_BASE_ROLE_ARN: arn:aws:iam::905418372486:role/service-role/AmazonBedrockExecutionRoleForKnowledgeBase_9umgz
+          EMBEDDING_MODEL_ARN: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /chatbot
+            Method: post
+            RestApiId:
+              Ref: KnowledgeBaseAPI
+    Metadata:
+      SamResourceId: CreateChatBotLambda
+  CreateChatBotLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${StackName}-create-chat-bot-lambda
+      RetentionInDays: 7
+    Metadata:
+      SamResourceId: CreateChatBotLambdaLogGroup
+  ChatbotTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${StackName}-rag-chatbot-table
+      AttributeDefinitions:
+      - AttributeName: chatBotId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: chatBotId
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+    Metadata:
+      SamResourceId: ChatbotTable
+  KnowledgeBaseTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${StackName}-rag-knowledge-base-table
+      AttributeDefinitions:
+      - AttributeName: knowledgeBaseId
+        AttributeType: S
+      - AttributeName: chatBotId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: knowledgeBaseId
+        KeyType: HASH
+      - AttributeName: chatBotId
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+    Metadata:
+      SamResourceId: KnowledgeBaseTable
   KnowledgeBaseAPI:
     Type: AWS::Serverless::Api
     Properties:
       StageName: dev
-      Name: knowledgebase-api
+      Name:
+        Fn::Sub: ${StackName}-knowledgebase-api
       EndpointConfiguration:
         Type: REGIONAL
       Cors:
