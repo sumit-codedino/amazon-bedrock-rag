@@ -1,25 +1,28 @@
 const { DynamoDBClient } = require("@aws-sdk/client-dynamodb");
-const { DynamoDBDocumentClient, PutCommand } = require("@aws-sdk/lib-dynamodb");
+const {
+  DynamoDBDocumentClient,
+  UpdateCommand,
+} = require("@aws-sdk/lib-dynamodb");
 
 const logger = require("../../utils/logger");
 
-const putDBItem = async (params) => {
-  logger.info("Putting item into DynamoDB:", params);
+const updateDBItem = async (params) => {
+  logger.info("Updating item in DynamoDB:", params);
 
   try {
     const client = new DynamoDBClient({ region: process.env.AWS_REGION });
     const docClient = DynamoDBDocumentClient.from(client);
 
-    const command = new PutCommand(params);
+    const command = new UpdateCommand(params);
     await docClient.send(command);
 
-    logger.info("Item put into DynamoDB successfully");
+    logger.info("Item updated in DynamoDB successfully");
     return {
       isError: false,
-      message: "Item put into DynamoDB successfully",
+      message: "Item updated in DynamoDB successfully",
     };
   } catch (error) {
-    logger.error("Error putting item into DynamoDB:", {
+    logger.error("Error updating item in DynamoDB:", {
       error: error.message,
       stack: error.stack,
     });
@@ -30,4 +33,4 @@ const putDBItem = async (params) => {
   }
 };
 
-module.exports = putDBItem;
+module.exports = updateDBItem;

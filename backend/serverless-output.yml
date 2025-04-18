@@ -23,7 +23,7 @@ Resources:
       LayerName:
         Fn::Sub: ${StackName}-common-layer
       Description: Common utilities and services for all Lambda functions
-      ContentUri: s3://centexautotitle.net/rag/services/2f94b0a7431f7a469f84135f23240e1b
+      ContentUri: s3://centexautotitle.net/rag/services/3234defc31ad2740f36deaea0b83e81e
       CompatibleRuntimes:
       - nodejs20.x
       RetentionPolicy: Delete
@@ -35,7 +35,7 @@ Resources:
       LayerName:
         Fn::Sub: ${StackName}-dependencies-layer
       Description: Dependencies layer for the Bedrock RAG project
-      ContentUri: s3://centexautotitle.net/rag/services/8ec8a636d811b7db2bb392498d6de894
+      ContentUri: s3://centexautotitle.net/rag/services/c2284befb2d0dfb91ae53145dc1d0d60
       CompatibleRuntimes:
       - nodejs20.x
       RetentionPolicy: Delete
@@ -189,7 +189,7 @@ Resources:
         Fn::Sub: ${StackName}-create-chat-bot-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/6e060643ed90ad2369a71b51f246f6c7
+      CodeUri: s3://centexautotitle.net/rag/services/805dd19eb7fb71ddb3488eb4ceb35304
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -221,11 +221,50 @@ Resources:
       RetentionInDays: 7
     Metadata:
       SamResourceId: CreateChatBotLambdaLogGroup
+  UserSignUpLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-user-sign-up-lambda
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: s3://centexautotitle.net/rag/services/e1ad5da06706da3db1adc8c62e3678f1
+      Timeout: 900
+      Role:
+        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
+      Layers:
+      - Ref: CommonLayer
+      - Ref: DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: /opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies
+          USERS_TABLE_NAME:
+            Ref: UserDetailsTable
+          KNOWLEDGE_BASE_ROLE_ARN: arn:aws:iam::905418372486:role/service-role/AmazonBedrockExecutionRoleForKnowledgeBase_9umgz
+          EMBEDDING_MODEL_ARN: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /user-sign-up
+            Method: post
+            RestApiId:
+              Ref: KnowledgeBaseAPI
+    Metadata:
+      SamResourceId: UserSignUpLambda
+  UserSignUpLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${StackName}-user-sign-up-lambda
+      RetentionInDays: 7
+    Metadata:
+      SamResourceId: UserSignUpLambdaLogGroup
   ChatbotTable:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName:
-        Fn::Sub: ${StackName}-rag-chatbot-table
+        Fn::Sub: ${StackName}-chatbot-table
       AttributeDefinitions:
       - AttributeName: chatBotId
         AttributeType: S
@@ -241,7 +280,7 @@ Resources:
     Type: AWS::DynamoDB::Table
     Properties:
       TableName:
-        Fn::Sub: ${StackName}-rag-knowledge-base-table
+        Fn::Sub: ${StackName}-knowledge-base-table
       AttributeDefinitions:
       - AttributeName: knowledgeBaseId
         AttributeType: S
@@ -257,6 +296,42 @@ Resources:
         WriteCapacityUnits: 1
     Metadata:
       SamResourceId: KnowledgeBaseTable
+  UserDetailsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${StackName}-user-details-table
+      AttributeDefinitions:
+      - AttributeName: userId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: userId
+        KeyType: HASH
+      ProvisionedThroughput:
+        ReadCapacityUnits: 10
+        WriteCapacityUnits: 10
+    Metadata:
+      SamResourceId: UserDetailsTable
+  UserChatBotTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${StackName}-user-chatbot-table
+      AttributeDefinitions:
+      - AttributeName: userId
+        AttributeType: S
+      - AttributeName: chatBotId
+        AttributeType: S
+      KeySchema:
+      - AttributeName: userId
+        KeyType: HASH
+      - AttributeName: chatBotId
+        KeyType: RANGE
+      ProvisionedThroughput:
+        ReadCapacityUnits: 10
+        WriteCapacityUnits: 10
+    Metadata:
+      SamResourceId: UserChatBotTable
   KnowledgeBaseAPI:
     Type: AWS::Serverless::Api
     Properties:

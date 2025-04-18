@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import { ChatBotList } from "../components/chat/ChatBotList";
 import { useAppDispatch } from "../store/store";
 import { setUser } from "../store/slices/authSlice";
+import { setChatBotId } from "../store/slices/chatBotSlice";
 
 // Mock data - replace with actual data from your backend
 const mockChatbots = [
@@ -62,7 +63,8 @@ export default function ChatBotHomepage() {
   };
 
   const handleEdit = (id: string) => {
-    router.push(`/chatbots/${id}/edit`);
+    dispatch(setChatBotId(id));
+    router.push(`/chatbot/${id}/edit`);
   };
 
   const handleDelete = (id: string) => {
@@ -71,7 +73,8 @@ export default function ChatBotHomepage() {
   };
 
   const handleChat = (id: string) => {
-    router.push(`/chatbots/${id}/chat`);
+    dispatch(setChatBotId(id));
+    router.push(`/chatbot/${id}/chat`);
   };
 
   if (!isLoaded || !isSignedIn) {
