@@ -10,97 +10,81 @@ const logger = require(isLambda
   : path.join(basePath, "utils/logger"));
 
 const { v4: uuidv4 } = require("uuid");
-const createNewKnowledgeBase = require("./helpers/create-knowledge-base.js");
 const addChatbotDB = require("./helpers/add-chatbot-db.js");
+const addUserChatbotDB = require("./helpers/add-user-chatbot-db.js");
+const getUserDB = require("./helpers/get-user-db.js");
 const config = require("./config");
-
-/**
- * Retry a function with exponential backoff
- * @param {Function} fn - The function to retry
- * @param {number} maxAttempts - Maximum number of attempts
- * @param {number} baseDelay - Base delay in milliseconds
- * @returns {Promise<any>} The result of the function
- */
-const retryWithBackoff = async (
-  fn,
-  maxAttempts = config.RETRY_CONFIG.MAX_ATTEMPTS,
-  baseDelay = config.RETRY_CONFIG.BASE_DELAY
-) => {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await fn();
-    } catch (error) {
-      attempt++;
-      if (attempt >= maxAttempts) {
-        throw error;
-      }
-      const delay = baseDelay * Math.pow(2, attempt - 1);
-      logger.warn(`Retry attempt ${attempt} after ${delay}ms`, {
-        error: error.message,
-      });
-      await new Promise((resolve) => setTimeout(resolve, delay));
-    }
-  }
-};
 
 /**
  * Creates a new chatbot with the given parameters
  * @param {string} name - Name of the chatbot
  * @param {string} description - Description of the chatbot
- * @param {Array} dataSources - Array of data sources
- * @param {Array} s3Files - Array of S3 files
- * @param {Array} webUrls - Array of web URLs
- * @returns {Promise<Object>} Result of the chatbot creation
+ * @param {string} userId - User ID of the chatbot
  */
-const createChatBot = async (
-  name,
-  description,
-  dataSources,
-  s3Files,
-  webUrls
-) => {
-  logger.info("Starting chatbot creation process", {
+const createChatBot = async (event) => {
+  let body;
+  try {
+    body = typeof event.body === "string" ? JSON.parse(event.body) : event.body;
+  } catch (error) {
+    logger.error("Invalid request body:", error);
+    return {
+      statusCode: config.STATUS_CODES.BAD_REQUEST,
+      body: JSON.stringify({ error: "Invalid request body format" }),
+    };
+  }
+
+  const { name, description, userId } = body;
+
+  // Validate required fields
+  if (!name || !description || !userId) {
+    logger.error("Missing required fields:", {
+      name,
+      description,
+      userId,
+    });
+    return {
+      statusCode: config.STATUS_CODES.BAD_REQUEST,
+      body: JSON.stringify({
+        error: config.ERROR_MESSAGES.MISSING_REQUIRED_FIELDS,
+      }),
+    };
+  }
+
+  logger.info("Processing chatbot creation request", {
     name,
     description,
+    userId,
   });
 
   try {
+    let knowledgeBaseId;
+    if (!body.knowledgeBaseId) {
+      const getUserDBResult = await getUserDB(userId);
+      if (getUserDBResult.isError) {
+        logger.error("Failed to get user from database:", {
+          userId,
+          error: getUserDBResult.error,
+        });
+        return {
+          statusCode: config.STATUS_CODES.INTERNAL_SERVER_ERROR,
+          body: { error: config.ERROR_MESSAGES.DATABASE_OPERATION_FAILED },
+        };
+      }
+      knowledgeBaseId = getUserDBResult.Item.knowledgeBaseId;
+    } else {
+      knowledgeBaseId = body.knowledgeBaseId;
+    }
+
     const chatBotId = uuidv4();
     logger.info("Generated chatbot ID:", { chatBotId });
 
-    // Create knowledge base with retry logic
-    const createKnowledgeBaseResult = await retryWithBackoff(async () => {
-      logger.info("Creating knowledge base", { chatBotId });
-      return await createNewKnowledgeBase(chatBotId, dataSources);
-    });
-
-    if (createKnowledgeBaseResult.isError) {
-      logger.error(
-        "Failed to create knowledge base:",
-        createKnowledgeBaseResult.error
-      );
-      return {
-        statusCode: config.STATUS_CODES.INTERNAL_SERVER_ERROR,
-        body: { error: config.ERROR_MESSAGES.KNOWLEDGE_BASE_CREATION_FAILED },
-      };
-    }
-
-    logger.info("Knowledge base created successfully", {
+    const addChatbotDBResult = await addChatbotDB(
       chatBotId,
-      knowledgeBaseId: createKnowledgeBaseResult.knowledgeBase,
-    });
-
-    // Add chatbot to database with retry logic
-    const addChatbotDBResult = await retryWithBackoff(async () => {
-      logger.info("Adding chatbot to database", { chatBotId });
-      return await addChatbotDB(
-        chatBotId,
-        name,
-        description,
-        createKnowledgeBaseResult.knowledgeBaseId
-      );
-    });
+      name,
+      description,
+      userId,
+      knowledgeBaseId
+    );
 
     if (
       !addChatbotDBResult ||
@@ -126,9 +110,35 @@ const createChatBot = async (
 
     logger.info("Chatbot created successfully", { chatBotId });
 
+    const addUserChatbotDBResult = await addUserChatbotDB(
+      userId,
+      chatBotId,
+      name,
+      description,
+      knowledgeBaseId
+    );
+
+    if (addUserChatbotDBResult.isError) {
+      logger.error("Failed to add user chatbot to database:", {
+        userId,
+        chatBotId,
+        error: addUserChatbotDBResult.error,
+      });
+      return {
+        statusCode: config.STATUS_CODES.INTERNAL_SERVER_ERROR,
+        body: { error: config.ERROR_MESSAGES.DATABASE_OPERATION_FAILED },
+      };
+    }
+
+    logger.info("User chatbot added to database:", {
+      userId,
+      chatBotId,
+      knowledgeBaseId,
+    });
+
     return {
       statusCode: config.STATUS_CODES.SUCCESS,
-      body: { chatBotId },
+      body: { chatBotId, knowledgeBaseId },
     };
   } catch (error) {
     logger.error("Unexpected error in chatbot creation process:", {

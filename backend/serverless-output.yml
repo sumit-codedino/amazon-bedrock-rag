@@ -23,7 +23,7 @@ Resources:
       LayerName:
         Fn::Sub: ${StackName}-common-layer
       Description: Common utilities and services for all Lambda functions
-      ContentUri: s3://centexautotitle.net/rag/services/3234defc31ad2740f36deaea0b83e81e
+      ContentUri: s3://centexautotitle.net/rag/services/9d948d8c30916e1df3322bb3f0d51ed4
       CompatibleRuntimes:
       - nodejs20.x
       RetentionPolicy: Delete
@@ -189,7 +189,7 @@ Resources:
         Fn::Sub: ${StackName}-create-chat-bot-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/805dd19eb7fb71ddb3488eb4ceb35304
+      CodeUri: s3://centexautotitle.net/rag/services/23f978e7d517868bbb24ae546cdf2edf
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -201,6 +201,10 @@ Resources:
           NODE_PATH: /opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies
           CHATBOT_TABLE_NAME:
             Ref: ChatbotTable
+          USER_TABLE_NAME:
+            Ref: UserDetailsTable
+          USER_CHATBOT_TABLE_NAME:
+            Ref: UserChatBotTable
           KNOWLEDGE_BASE_ROLE_ARN: arn:aws:iam::905418372486:role/service-role/AmazonBedrockExecutionRoleForKnowledgeBase_9umgz
           EMBEDDING_MODEL_ARN: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0
       Events:
@@ -228,7 +232,7 @@ Resources:
         Fn::Sub: ${StackName}-user-sign-up-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/e1ad5da06706da3db1adc8c62e3678f1
+      CodeUri: s3://centexautotitle.net/rag/services/d1fca50976d1a79d1a4c0103079de4f3
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -260,6 +264,47 @@ Resources:
       RetentionInDays: 7
     Metadata:
       SamResourceId: UserSignUpLambdaLogGroup
+  GetAllChatBotsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-get-all-chatbots-lambda
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: s3://centexautotitle.net/rag/services/618fc2e107c03ae366edc0e10657f66c
+      Timeout: 900
+      Role:
+        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
+      Layers:
+      - Ref: CommonLayer
+      - Ref: DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: /opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies
+          CHATBOT_TABLE_NAME:
+            Ref: ChatbotTable
+          USER_TABLE_NAME:
+            Ref: UserDetailsTable
+          USER_CHATBOT_TABLE_NAME:
+            Ref: UserChatBotTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /chatbots
+            Method: get
+            RestApiId:
+              Ref: KnowledgeBaseAPI
+    Metadata:
+      SamResourceId: GetAllChatBotsLambda
+  GetAllChatBotsLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${StackName}-get-all-chatbots-lambda
+      RetentionInDays: 7
+    Metadata:
+      SamResourceId: GetAllChatBotsLambdaLogGroup
   ChatbotTable:
     Type: AWS::DynamoDB::Table
     Properties:
@@ -284,12 +329,12 @@ Resources:
       AttributeDefinitions:
       - AttributeName: knowledgeBaseId
         AttributeType: S
-      - AttributeName: chatBotId
+      - AttributeName: createdBy
         AttributeType: S
       KeySchema:
       - AttributeName: knowledgeBaseId
         KeyType: HASH
-      - AttributeName: chatBotId
+      - AttributeName: createdBy
         KeyType: RANGE
       ProvisionedThroughput:
         ReadCapacityUnits: 1
@@ -322,11 +367,23 @@ Resources:
         AttributeType: S
       - AttributeName: chatBotId
         AttributeType: S
+      - AttributeName: createdBy
+        AttributeType: S
       KeySchema:
       - AttributeName: userId
         KeyType: HASH
       - AttributeName: chatBotId
         KeyType: RANGE
+      GlobalSecondaryIndexes:
+      - IndexName: createdBy-index
+        KeySchema:
+        - AttributeName: createdBy
+          KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+        ProvisionedThroughput:
+          ReadCapacityUnits: 10
+          WriteCapacityUnits: 10
       ProvisionedThroughput:
         ReadCapacityUnits: 10
         WriteCapacityUnits: 10

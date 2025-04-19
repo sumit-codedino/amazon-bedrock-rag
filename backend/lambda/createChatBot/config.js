@@ -14,8 +14,7 @@ module.exports = {
 
   // Error Messages
   ERROR_MESSAGES: {
-    MISSING_REQUIRED_FIELDS: "Name and description are required",
-    KNOWLEDGE_BASE_CREATION_FAILED: "Failed to create knowledge base",
+    MISSING_REQUIRED_FIELDS: "Missing required fields",
     CHATBOT_CREATION_FAILED: "Failed to create chatbot",
     DATABASE_OPERATION_FAILED: "Failed to add chatbot",
     INVALID_DB_RESPONSE: "Invalid response from database operation",

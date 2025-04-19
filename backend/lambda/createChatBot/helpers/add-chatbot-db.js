@@ -12,11 +12,18 @@ const putDBItem = require(isLambda
   ? "aws/dynamo-db/put-db-item"
   : path.join(basePath, "aws/dynamo-db/put-db-item"));
 
-const addChatbotDB = async (chatBotId, name, description, knowledgeBaseId) => {
+const addChatbotDB = async (
+  chatBotId,
+  name,
+  description,
+  userId,
+  knowledgeBaseId
+) => {
   logger.info("Updating chatbot in DynamoDB:", {
     chatBotId,
     name,
     description,
+    userId,
     knowledgeBaseId,
   });
 
@@ -29,6 +36,8 @@ const addChatbotDB = async (chatBotId, name, description, knowledgeBaseId) => {
         description,
         knowledgeBaseId,
         createdAt: new Date().toISOString(),
+        lastUpdatedAt: new Date().toISOString(),
+        createdBy: userId,
       },
     };
 

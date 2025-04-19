@@ -171,6 +171,8 @@ Resources:
         Variables:
           NODE_PATH: "/opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies"
           CHATBOT_TABLE_NAME: !Ref ChatbotTable
+          USER_TABLE_NAME: !Ref UserDetailsTable
+          USER_CHATBOT_TABLE_NAME: !Ref UserChatBotTable
           KNOWLEDGE_BASE_ROLE_ARN: "arn:aws:iam::905418372486:role/service-role/AmazonBedrockExecutionRoleForKnowledgeBase_9umgz"
           EMBEDDING_MODEL_ARN: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
       Events:
@@ -217,6 +219,38 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub "/aws/lambda/${StackName}-user-sign-up-lambda"
+      RetentionInDays: 7
+
+  GetAllChatBotsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${StackName}-get-all-chatbots-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/getAllChatBots
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Layers:
+        - !Ref CommonLayer
+        - !Ref DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: "/opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies"
+          CHATBOT_TABLE_NAME: !Ref ChatbotTable
+          USER_TABLE_NAME: !Ref UserDetailsTable
+          USER_CHATBOT_TABLE_NAME: !Ref UserChatBotTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /chatbots
+            Method: get
+            RestApiId: !Ref KnowledgeBaseAPI
+
+  GetAllChatBotsLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StackName}-get-all-chatbots-lambda"
       RetentionInDays: 7
 
   ChatbotTable:
@@ -274,11 +308,23 @@ Resources:
           AttributeType: S
         - AttributeName: chatBotId
           AttributeType: S
+        - AttributeName: createdBy
+          AttributeType: S
       KeySchema:
         - AttributeName: userId
           KeyType: HASH
         - AttributeName: chatBotId
           KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: createdBy-index
+          KeySchema:
+            - AttributeName: createdBy
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 10
+            WriteCapacityUnits: 10
       ProvisionedThroughput:
         ReadCapacityUnits: 10
         WriteCapacityUnits: 10

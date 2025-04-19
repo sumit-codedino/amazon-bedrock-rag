@@ -5,6 +5,9 @@ interface ChatBotState {
   chatBotName: string | null;
   chatBotDescription: string | null;
   dataSources: string[] | null;
+  knowledgeBaseId: string | null;
+  s3DataSourceId: string | null;
+  webPageDataSourceId: string | null;
 }
 
 const initialState: ChatBotState = {
@@ -12,6 +15,9 @@ const initialState: ChatBotState = {
   chatBotName: null,
   chatBotDescription: null,
   dataSources: null,
+  knowledgeBaseId: null,
+  s3DataSourceId: null,
+  webPageDataSourceId: null,
 };
 
 const chatBotSlice = createSlice({
@@ -30,6 +36,15 @@ const chatBotSlice = createSlice({
     setDataSources: (state, action: PayloadAction<string[]>) => {
       state.dataSources = action.payload;
     },
+    setKnowledgeBaseId: (state, action: PayloadAction<string>) => {
+      state.knowledgeBaseId = action.payload;
+    },
+    setS3DataSourceId: (state, action: PayloadAction<string>) => {
+      state.s3DataSourceId = action.payload;
+    },
+    setWebPageDataSourceId: (state, action: PayloadAction<string>) => {
+      state.webPageDataSourceId = action.payload;
+    },
   },
 });
 
@@ -38,5 +53,8 @@ export const {
   setChatBotName,
   setChatBotDescription,
   setDataSources,
+  setKnowledgeBaseId,
+  setS3DataSourceId,
+  setWebPageDataSourceId,
 } = chatBotSlice.actions;
 export default chatBotSlice.reducer;

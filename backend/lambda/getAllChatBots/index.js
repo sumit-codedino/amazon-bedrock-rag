@@ -12,7 +12,7 @@ const logger = require(isLambda
   : path.join(basePath, "utils/logger"));
 
 /**
- * Lambda handler for creating a new chatbot
+ * Lambda handler for getting all chatbots
  * @param {Object} event - The Lambda event object
  * @param {Object} context - The Lambda context object
  * @returns {Object} Response object with status code and body
@@ -21,13 +21,13 @@ exports.handler = async (event) => {
   logger.info("Received event:", event);
 
   try {
-    const createChatBotResult = await processor.createChatBot(event);
+    const getAllChatBotsResult = await processor.getAllChatBots(event);
 
-    logger.info("Chatbot creation result:", createChatBotResult);
+    logger.info("Get all chatbots result:", getAllChatBotsResult);
 
     return {
-      statusCode: createChatBotResult.statusCode,
-      body: JSON.stringify(createChatBotResult.body),
+      statusCode: getAllChatBotsResult.statusCode,
+      body: JSON.stringify(getAllChatBotsResult.body),
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
@@ -36,7 +36,7 @@ exports.handler = async (event) => {
       },
     };
   } catch (error) {
-    logger.error("Unexpected error creating chatbot:", {
+    logger.error("Unexpected error getting all chatbots:", {
       error: error.message,
       stack: error.stack,
     });
