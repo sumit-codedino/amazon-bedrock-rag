@@ -9,7 +9,7 @@ import TextInput from "./TextInput";
 import { createChatBot } from "@/apis/create-chat-bot";
 import { useDispatch } from "react-redux";
 import { addChatBot } from "../store/slices/chatBotListSlice";
-
+import { setChatBot } from "../store/slices/chatBotSlice";
 interface ChatbotFormData {
   name: string;
   description: string;
@@ -23,7 +23,7 @@ const defaultFormData: ChatbotFormData = {
 export default function CreateChatbotPage() {
   const router = useRouter();
   const dispatch = useDispatch();
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
   const [formData, setFormData] = useState<ChatbotFormData>(defaultFormData);
   const [isFormValid, setIsFormValid] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -52,6 +52,7 @@ export default function CreateChatbotPage() {
       const result = await createChatBot({
         name: formData.name,
         description: formData.description,
+        userId: userId as string,
         token,
       });
 
@@ -60,10 +61,25 @@ export default function CreateChatbotPage() {
       } else {
         dispatch(
           addChatBot({
-            id: result.chatBotId || null,
-            name: formData.name,
-            description: formData.description,
+            chatBotId: result.chatBotId || "",
+            chatBotName: formData.name,
+            chatBotDescription: formData.description,
             dataSources: [],
+            s3DataSourceId: null,
+            webPageDataSourceId: null,
+            knowledgeBaseId: null,
+            lastUpdated: new Date().toISOString(),
+          })
+        );
+        dispatch(
+          setChatBot({
+            chatBotId: result.chatBotId || "",
+            chatBotName: formData.name,
+            chatBotDescription: formData.description,
+            dataSources: [],
+            s3DataSourceId: null,
+            webPageDataSourceId: null,
+            knowledgeBaseId: null,
           })
         );
         router.push(`/chatbot/${result.chatBotId}/chat`);

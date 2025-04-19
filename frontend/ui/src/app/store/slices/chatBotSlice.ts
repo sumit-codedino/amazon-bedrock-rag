@@ -8,6 +8,7 @@ interface ChatBotState {
   knowledgeBaseId: string | null;
   s3DataSourceId: string | null;
   webPageDataSourceId: string | null;
+  lastUpdatedAt: string | null;
 }
 
 const initialState: ChatBotState = {
@@ -18,12 +19,23 @@ const initialState: ChatBotState = {
   knowledgeBaseId: null,
   s3DataSourceId: null,
   webPageDataSourceId: null,
+  lastUpdatedAt: null,
 };
 
 const chatBotSlice = createSlice({
   name: "chatBot",
   initialState,
   reducers: {
+    setChatBot: (state, action: PayloadAction<ChatBotState>) => {
+      state.chatBotId = action.payload.chatBotId;
+      state.chatBotName = action.payload.chatBotName;
+      state.chatBotDescription = action.payload.chatBotDescription;
+      state.dataSources = action.payload.dataSources;
+      state.knowledgeBaseId = action.payload.knowledgeBaseId;
+      state.s3DataSourceId = action.payload.s3DataSourceId;
+      state.webPageDataSourceId = action.payload.webPageDataSourceId;
+      state.lastUpdatedAt = action.payload.lastUpdatedAt;
+    },
     setChatBotId: (state, action: PayloadAction<string>) => {
       state.chatBotId = action.payload;
     },
@@ -45,10 +57,14 @@ const chatBotSlice = createSlice({
     setWebPageDataSourceId: (state, action: PayloadAction<string>) => {
       state.webPageDataSourceId = action.payload;
     },
+    setLastUpdatedAt: (state, action: PayloadAction<string>) => {
+      state.lastUpdatedAt = action.payload;
+    },
   },
 });
 
 export const {
+  setChatBot,
   setChatBotId,
   setChatBotName,
   setChatBotDescription,
@@ -56,5 +72,6 @@ export const {
   setKnowledgeBaseId,
   setS3DataSourceId,
   setWebPageDataSourceId,
+  setLastUpdatedAt,
 } = chatBotSlice.actions;
 export default chatBotSlice.reducer;

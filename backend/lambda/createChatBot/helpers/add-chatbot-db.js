@@ -14,15 +14,15 @@ const putDBItem = require(isLambda
 
 const addChatbotDB = async (
   chatBotId,
-  name,
-  description,
+  chatBotName,
+  chatBotDescription,
   userId,
   knowledgeBaseId
 ) => {
   logger.info("Updating chatbot in DynamoDB:", {
     chatBotId,
-    name,
-    description,
+    chatBotName,
+    chatBotDescription,
     userId,
     knowledgeBaseId,
   });
@@ -32,8 +32,8 @@ const addChatbotDB = async (
       TableName: process.env.CHATBOT_TABLE_NAME,
       Item: {
         chatBotId,
-        name,
-        description,
+        chatBotName,
+        chatBotDescription,
         knowledgeBaseId,
         createdAt: new Date().toISOString(),
         lastUpdatedAt: new Date().toISOString(),

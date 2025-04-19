@@ -8,16 +8,14 @@ const basePath = isLambda
 const logger = require(isLambda
   ? "utils/logger"
   : path.join(basePath, "utils/logger"));
-const queryUserChatbot = require(isLambda
-  ? "helpers/query-user-chatbot"
-  : path.join(basePath, "helpers/query-user-chatbot"));
+
+const queryUserChatbot = require("./helpers/query-user-chatbot");
 
 const getAllChatBots = async (event) => {
   logger.info("Received event:", event);
 
   try {
-    const body = JSON.parse(event.body);
-    const userId = body.userId;
+    const userId = event.queryStringParameters.userId;
 
     if (!userId) {
       logger.error("User ID is required");
@@ -29,7 +27,18 @@ const getAllChatBots = async (event) => {
 
     const userChatbotResult = await queryUserChatbot(userId);
     if (userChatbotResult.isError) {
-      throw new Error(userChatbotResult.error);
+      logger.error("Error getting user chatbot:", userChatbotResult.error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ message: "Internal server error" }),
+      };
+    }
+
+    if (userChatbotResult.Items.length === 0) {
+      return {
+        statusCode: 200,
+        body: JSON.stringify({ chatBotDetails: [] }),
+      };
     }
 
     const chatBotDetails = userChatbotResult.Items.map((item) => {
@@ -41,6 +50,7 @@ const getAllChatBots = async (event) => {
         s3DataSourceId: item.s3DataSourceId || null,
         webPageDataSourceId: item.webPageDataSourceId || null,
         knowledgeBaseId: item.knowledgeBaseId,
+        lastUpdatedAt: item.lastUpdatedAt,
       };
     });
 
@@ -62,4 +72,6 @@ const getAllChatBots = async (event) => {
   }
 };
 
-module.exports = getAllChatBots;
+module.exports = {
+  getAllChatBots,
+};

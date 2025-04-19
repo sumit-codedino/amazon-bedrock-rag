@@ -2,34 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ChatBotList } from "../components/chat/ChatBotList";
 import { useAppDispatch } from "../store/store";
 import { setUser } from "../store/slices/authSlice";
 import { setChatBotId } from "../store/slices/chatBotSlice";
-
-// Mock data - replace with actual data from your backend
-const mockChatbots = [
-  {
-    id: "1",
-    name: "Customer Support Bot",
-    description:
-      "A chatbot trained on our customer support documentation to help answer common questions.",
-    lastUpdated: "2 days ago",
-  },
-  {
-    id: "2",
-    name: "Product Knowledge Bot",
-    description:
-      "Specialized in answering questions about our product features and specifications.",
-    lastUpdated: "1 week ago",
-  },
-];
+import { getAllChatBots } from "../../apis/get-all-chat-bots";
+import { setChatBotList } from "../store/slices/chatBotListSlice";
+import { ChatBot } from "../type/chatBotList";
+import { ArrowPathIcon } from "@heroicons/react/24/outline";
 
 export default function ChatBotHomepage() {
   const router = useRouter();
   const { userId, isLoaded, isSignedIn, getToken } = useAuth();
   const dispatch = useAppDispatch();
+  const [chatBots, setChatBots] = useState<ChatBot[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const fetchToken = async () => {
@@ -38,6 +26,29 @@ export default function ChatBotHomepage() {
     };
     fetchToken();
   }, [getToken]);
+
+  useEffect(() => {
+    const fetchChatBots = async () => {
+      if (userId) {
+        try {
+          setIsLoading(true);
+          const response = await getAllChatBots(userId);
+          if (response.isError) {
+            console.error("Error fetching chatbots:", response.error);
+          } else {
+            console.log("Chatbots:", response.chatBotDetails);
+            setChatBots(response.chatBotDetails || []);
+            dispatch(setChatBotList(response.chatBotDetails || []));
+          }
+        } catch (error) {
+          console.error("Error fetching chatbots:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    fetchChatBots();
+  }, [userId as string]);
 
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
@@ -93,13 +104,19 @@ export default function ChatBotHomepage() {
           </p>
         </div>
 
-        <ChatBotList
-          chatbots={mockChatbots}
-          onCreateNew={handleCreateNew}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          onChat={handleChat}
-        />
+        {isLoading ? (
+          <div className="flex justify-center items-center h-64">
+            <ArrowPathIcon className="w-8 h-8 text-blue-500 animate-spin" />
+          </div>
+        ) : (
+          <ChatBotList
+            chatbots={chatBots}
+            onCreateNew={handleCreateNew}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onChat={handleChat}
+          />
+        )}
       </div>
     </div>
   );

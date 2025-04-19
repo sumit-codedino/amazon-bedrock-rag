@@ -3,6 +3,7 @@ import axios from "axios";
 interface CreateChatBotParams {
   name: string;
   description: string;
+  userId: string;
   token: string;
 }
 
@@ -12,18 +13,18 @@ interface CreateChatBotResponse {
   chatBotId?: string;
 }
 
-const API_URL =
-  "https://nfcu2gdhve.execute-api.us-east-1.amazonaws.com/dev/chatbot";
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/chatbot`;
 
 export const createChatBot = async ({
   name,
   description,
+  userId,
   token,
 }: CreateChatBotParams): Promise<CreateChatBotResponse> => {
   try {
     const response = await axios.post(
       API_URL,
-      { name, description },
+      { name, description, userId },
       {
         headers: {
           Authorization: `Bearer ${token}`,

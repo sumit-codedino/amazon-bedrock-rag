@@ -23,7 +23,7 @@ Resources:
       LayerName:
         Fn::Sub: ${StackName}-common-layer
       Description: Common utilities and services for all Lambda functions
-      ContentUri: s3://centexautotitle.net/rag/services/9d948d8c30916e1df3322bb3f0d51ed4
+      ContentUri: s3://centexautotitle.net/rag/services/c602d03d25087119b3cae23da46793f9
       CompatibleRuntimes:
       - nodejs20.x
       RetentionPolicy: Delete
@@ -35,7 +35,7 @@ Resources:
       LayerName:
         Fn::Sub: ${StackName}-dependencies-layer
       Description: Dependencies layer for the Bedrock RAG project
-      ContentUri: s3://centexautotitle.net/rag/services/c2284befb2d0dfb91ae53145dc1d0d60
+      ContentUri: s3://centexautotitle.net/rag/services/f329c41d42e3e3fb5a564cf9b05ce349
       CompatibleRuntimes:
       - nodejs20.x
       RetentionPolicy: Delete
@@ -189,7 +189,7 @@ Resources:
         Fn::Sub: ${StackName}-create-chat-bot-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/23f978e7d517868bbb24ae546cdf2edf
+      CodeUri: s3://centexautotitle.net/rag/services/c2dbf9b2165385dda7811d38676af684
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -271,7 +271,7 @@ Resources:
         Fn::Sub: ${StackName}-get-all-chatbots-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/618fc2e107c03ae366edc0e10657f66c
+      CodeUri: s3://centexautotitle.net/rag/services/82612cc460a73214413d1513f723acaa
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -305,6 +305,44 @@ Resources:
       RetentionInDays: 7
     Metadata:
       SamResourceId: GetAllChatBotsLambdaLogGroup
+  GenerateSignedUrlLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-generate-signed-url-lambda
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: s3://centexautotitle.net/rag/services/4494b46081319b66ff903d475090a065
+      Timeout: 900
+      Role:
+        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
+      Layers:
+      - Ref: CommonLayer
+      - Ref: DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: /opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies
+          BUCKET_NAME: open-search-service
+          CHATBOT_TABLE_NAME:
+            Ref: ChatbotTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /generate-signed-url
+            Method: post
+            RestApiId:
+              Ref: KnowledgeBaseAPI
+    Metadata:
+      SamResourceId: GenerateSignedUrlLambda
+  GenerateSignedUrlLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${StackName}-generate-signed-url-lambda
+      RetentionInDays: 7
+    Metadata:
+      SamResourceId: GenerateSignedUrlLambdaLogGroup
   ChatbotTable:
     Type: AWS::DynamoDB::Table
     Properties:

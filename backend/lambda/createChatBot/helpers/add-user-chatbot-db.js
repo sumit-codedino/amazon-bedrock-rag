@@ -14,20 +14,20 @@ const putDBItem = require(isLambda
 
 const addUserChatbotDB = async (
   userId,
-  chatbotId,
-  chatbotName,
-  chatbotDescription,
+  chatBotId,
+  chatBotName,
+  chatBotDescription,
   knowledgeBaseId
 ) => {
-  logger.info("Adding user chatbot to database:", { userId, chatbotId });
+  logger.info("Adding user chatbot to database:", { userId, chatBotId });
 
   const params = {
     TableName: process.env.USER_CHATBOT_TABLE_NAME,
     Item: {
       userId,
-      chatbotId,
-      chatbotName,
-      chatbotDescription,
+      chatBotId,
+      chatBotName,
+      chatBotDescription,
       knowledgeBaseId,
       createdBy: userId,
       createdAt: new Date().toISOString(),
@@ -36,8 +36,15 @@ const addUserChatbotDB = async (
   };
 
   try {
-    await putDBItem(params);
-    logger.info("User chatbot added to database:", { userId, chatbotId });
+    const result = await putDBItem(params);
+    if (result.isError) {
+      logger.error("Error adding user chatbot to database:");
+      return {
+        isError: true,
+        error: result.error,
+      };
+    }
+    logger.info("User chatbot added to database:", { userId, chatBotId });
     return {
       isError: false,
     };

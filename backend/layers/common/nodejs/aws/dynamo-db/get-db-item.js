@@ -17,7 +17,7 @@ const getDBItem = async (params) => {
     return {
       isError: false,
       message: "Item retrieved from DynamoDB successfully",
-      data: result,
+      Item: result.Item,
     };
   } catch (error) {
     logger.error("Error retrieving item from DynamoDB:", {

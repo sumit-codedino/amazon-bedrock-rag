@@ -253,6 +253,37 @@ Resources:
       LogGroupName: !Sub "/aws/lambda/${StackName}-get-all-chatbots-lambda"
       RetentionInDays: 7
 
+  GenerateSignedUrlLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${StackName}-generate-signed-url-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/generateSignedUrl
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Layers:
+        - !Ref CommonLayer
+        - !Ref DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: "/opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies"
+          BUCKET_NAME: "open-search-service"
+          CHATBOT_TABLE_NAME: !Ref ChatbotTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /generate-signed-url
+            Method: post
+            RestApiId: !Ref KnowledgeBaseAPI
+
+  GenerateSignedUrlLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StackName}-generate-signed-url-lambda"
+      RetentionInDays: 7
+
   ChatbotTable:
     Type: AWS::DynamoDB::Table
     Properties:

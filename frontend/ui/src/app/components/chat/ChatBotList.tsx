@@ -1,12 +1,6 @@
 import { ChatBotCard } from "./ChatBotCard";
 import { CreateChatBotButton } from "./CreateChatBotButton";
-
-interface ChatBot {
-  id: string;
-  name: string;
-  description: string;
-  lastUpdated: string;
-}
+import { ChatBot } from "../../type/chatBotList";
 
 interface ChatBotListProps {
   chatbots: ChatBot[];
@@ -50,13 +44,13 @@ export const ChatBotList = ({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {chatbots.map((chatbot) => (
           <ChatBotCard
-            key={chatbot.id}
-            name={chatbot.name}
-            description={chatbot.description}
-            lastUpdated={chatbot.lastUpdated}
-            onEdit={() => onEdit(chatbot.id)}
-            onDelete={() => onDelete(chatbot.id)}
-            onChat={() => onChat(chatbot.id)}
+            key={chatbot.chatBotId}
+            name={chatbot.chatBotName}
+            description={chatbot.chatBotDescription}
+            lastUpdated={chatbot.lastUpdatedAt}
+            onEdit={() => onEdit(chatbot.chatBotId)}
+            onDelete={() => onDelete(chatbot.chatBotId)}
+            onChat={() => onChat(chatbot.chatBotId)}
           />
         ))}
       </div>

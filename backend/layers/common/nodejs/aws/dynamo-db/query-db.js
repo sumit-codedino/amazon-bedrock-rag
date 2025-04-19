@@ -18,7 +18,7 @@ const queryDB = async (params) => {
     logger.info("Query result:", result);
     return {
       isError: false,
-      result,
+      Items: result.Items,
     };
   } catch (error) {
     logger.error("Error querying database:", {
