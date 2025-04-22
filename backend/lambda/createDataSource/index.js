@@ -12,7 +12,7 @@ const logger = require(isLambda
   : path.join(basePath, "utils/logger"));
 
 /**
- * Lambda handler for starting ingestion
+ * Lambda handler for creating a data source
  * @param {Object} event - The Lambda event object
  * @param {Object} context - The Lambda context object
  * @returns {Object} Response object with status code and body
@@ -21,13 +21,13 @@ exports.handler = async (event) => {
   logger.info("Received event:", event);
 
   try {
-    const startIngestionResult = await processor.startIngestion(event);
+    const createDataSourceResult = await processor.createDataSource(event);
 
-    logger.info("Start ingestion result:", startIngestionResult);
+    logger.info("Create data source result:", createDataSourceResult);
 
     return {
-      statusCode: startIngestionResult.statusCode,
-      body: JSON.stringify(startIngestionResult.body),
+      statusCode: createDataSourceResult.statusCode,
+      body: JSON.stringify(createDataSourceResult.body),
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
@@ -36,7 +36,7 @@ exports.handler = async (event) => {
       },
     };
   } catch (error) {
-    logger.error("Unexpected error starting ingestion:", {
+    logger.error("Unexpected error creating data source:", {
       error: error.message,
       stack: error.stack,
     });

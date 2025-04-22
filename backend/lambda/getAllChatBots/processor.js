@@ -10,6 +10,7 @@ const logger = require(isLambda
   : path.join(basePath, "utils/logger"));
 
 const queryUserChatbot = require("./helpers/query-user-chatbot");
+const getUserDB = require("./helpers/get-user-details");
 
 const getAllChatBots = async (event) => {
   logger.info("Received event:", event);
@@ -25,6 +26,32 @@ const getAllChatBots = async (event) => {
       };
     }
 
+    const userDetails = await getUserDB(userId);
+    if (userDetails.isError) {
+      logger.error("Error getting user details:", userDetails.error);
+      return {
+        statusCode: 500,
+        body: JSON.stringify({ message: "Internal server error" }),
+      };
+    }
+
+    if (!userDetails.Item) {
+      logger.error("User details not found");
+      return {
+        statusCode: 200,
+        body: JSON.stringify({
+          chatBotDetails: [],
+          knowledgeBaseId: null,
+          s3DataSourceId: null,
+          webDataSourceId: null,
+        }),
+      };
+    }
+
+    const { knowledgeBaseId, s3DataSourceId, webDataSourceId } =
+      userDetails.Item;
+
+    logger.info("User details:", userDetails.Item);
     const userChatbotResult = await queryUserChatbot(userId);
     if (userChatbotResult.isError) {
       logger.error("Error getting user chatbot:", userChatbotResult.error);
@@ -58,7 +85,12 @@ const getAllChatBots = async (event) => {
 
     return {
       statusCode: 200,
-      body: JSON.stringify({ chatBotDetails }),
+      body: JSON.stringify({
+        chatBotDetails,
+        knowledgeBaseId,
+        s3DataSourceId,
+        webDataSourceId,
+      }),
     };
   } catch (error) {
     logger.error("Error getting all chatbots:", {

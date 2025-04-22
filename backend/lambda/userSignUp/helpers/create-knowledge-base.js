@@ -18,6 +18,7 @@ const createKnowledgeBase = require(isLambda
 
 const checkIndexExists = async (indexName) => {
   try {
+    const collectionEndpoint = `https://${process.env.OPEN_SEARCH_SERVICE_COLLECTION_ID}.us-east-1.aoss.amazonaws.com`;
     const client = new Client({
       ...AwsSigv4Signer({
         region: process.env.AWS_REGION || "us-east-1",
@@ -27,7 +28,7 @@ const checkIndexExists = async (indexName) => {
           return credentialsProvider();
         },
       }),
-      node: "https://xl54vdjv2ith3i43w4rc.us-east-1.aoss.amazonaws.com",
+      node: collectionEndpoint,
       ssl: {
         rejectUnauthorized: false,
       },
@@ -44,36 +45,15 @@ const checkIndexExists = async (indexName) => {
   }
 };
 
-const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
-const createKnowledgeBaseWithRetry = async (params, maxRetries = 3) => {
-  let lastError;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+const createKnowledgeBaseWithRetry = async (params, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
     try {
-      logger.info(`Attempt ${attempt} to create knowledge base`);
-      const result = await createKnowledgeBase(params);
-
-      if (result.isError) {
-        throw new Error(result.error);
-      }
-
-      return result;
+      return await createKnowledgeBase(params);
     } catch (error) {
-      lastError = error;
-      logger.error(`Attempt ${attempt} failed:`, {
-        error: error.message,
-        stack: error.stack,
-      });
-
-      if (attempt < maxRetries) {
-        logger.info(`Retrying in 5 seconds... (${attempt}/${maxRetries})`);
-        await sleep(5000); // 5 second delay
-      }
+      if (i === retries - 1) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
     }
   }
-
-  throw lastError;
 };
 
 module.exports = async (userId, indexName) => {
@@ -111,8 +91,11 @@ module.exports = async (userId, indexName) => {
       storageConfiguration: {
         type: "OPENSEARCH_SERVERLESS",
         opensearchServerlessConfiguration: {
-          collectionArn:
-            "arn:aws:aoss:us-east-1:905418372486:collection/xl54vdjv2ith3i43w4rc",
+          collectionArn: `arn:aws:aoss:${
+            process.env.AWS_REGION || "us-east-1"
+          }:${process.env.AWS_ACCOUNT_ID}:collection/${
+            process.env.OPEN_SEARCH_SERVICE_COLLECTION_ID
+          }`,
           vectorIndexName: indexName,
           fieldMapping: {
             vectorField: "embedding",
@@ -140,7 +123,6 @@ module.exports = async (userId, indexName) => {
       error: error.message,
       stack: error.stack,
     });
-
     return {
       isError: true,
       error: error.message,

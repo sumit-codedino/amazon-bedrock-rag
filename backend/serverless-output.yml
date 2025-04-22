@@ -23,7 +23,7 @@ Resources:
       LayerName:
         Fn::Sub: ${StackName}-common-layer
       Description: Common utilities and services for all Lambda functions
-      ContentUri: s3://centexautotitle.net/rag/services/c602d03d25087119b3cae23da46793f9
+      ContentUri: s3://centexautotitle.net/rag/services/3fe60800fc1f9953f901122907d82af4
       CompatibleRuntimes:
       - nodejs20.x
       RetentionPolicy: Delete
@@ -41,76 +41,6 @@ Resources:
       RetentionPolicy: Delete
     Metadata:
       SamResourceId: DependenciesLayer
-  CreateWebDataSourceLambda:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName:
-        Fn::Sub: ${StackName}-create-web-data-source-lambda
-      Runtime: nodejs18.x
-      Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/af05647d1349da2ab3e7f37e5379779a
-      Timeout: 60
-      Role:
-        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
-      Events:
-        CustomResource:
-          Type: Api
-          Properties:
-            Path: /create-data-source
-            Method: post
-            RestApiId:
-              Ref: KnowledgeBaseAPI
-      Policies:
-      - Statement:
-        - Effect: Allow
-          Action:
-          - bedrock:CreateDataSource
-          - bedrock:UpdateDataSource
-          - bedrock:DeleteDataSource
-          Resource: '*'
-    Metadata:
-      SamResourceId: CreateWebDataSourceLambda
-  CreateWebDataSourceLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName:
-        Fn::Sub: /aws/lambda/${StackName}-create-web-data-source-lambda
-      RetentionInDays: 7
-    Metadata:
-      SamResourceId: CreateWebDataSourceLambdaLogGroup
-  IngestLambda:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName:
-        Fn::Sub: ${StackName}-ingest-lambda
-      Runtime: nodejs20.x
-      Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/903e65d09ab782bf5c04df14494541e6
-      Timeout: 900
-      Role:
-        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
-      Environment:
-        Variables:
-          BUCKET_ARN:
-            Ref: KnowledgeBaseBucket
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Path: /ingest
-            Method: post
-            RestApiId:
-              Ref: KnowledgeBaseAPI
-    Metadata:
-      SamResourceId: IngestLambda
-  IngestLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName:
-        Fn::Sub: /aws/lambda/${StackName}-ingest-lambda
-      RetentionInDays: 7
-    Metadata:
-      SamResourceId: IngestLambdaLogGroup
   QueryLambda:
     Type: AWS::Serverless::Function
     Properties:
@@ -232,7 +162,7 @@ Resources:
         Fn::Sub: ${StackName}-user-sign-up-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/d1fca50976d1a79d1a4c0103079de4f3
+      CodeUri: s3://centexautotitle.net/rag/services/91f42aea61767f94700b7e423eb026b2
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -246,6 +176,9 @@ Resources:
             Ref: UserDetailsTable
           KNOWLEDGE_BASE_ROLE_ARN: arn:aws:iam::905418372486:role/service-role/AmazonBedrockExecutionRoleForKnowledgeBase_9umgz
           EMBEDDING_MODEL_ARN: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0
+          S3_BUCKET_NAME: open-search-service
+          INTERMEDIATE_BUCKET_NAME: intermediate-open-service
+          OPEN_SEARCH_SERVICE_COLLECTION_ID: etyv45i5pjaq67w4cwt1
       Events:
         ApiEvent:
           Type: Api
@@ -271,7 +204,7 @@ Resources:
         Fn::Sub: ${StackName}-get-all-chatbots-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/82612cc460a73214413d1513f723acaa
+      CodeUri: s3://centexautotitle.net/rag/services/c73501d6250ce03ce71c9406a7e03c3f
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -343,6 +276,133 @@ Resources:
       RetentionInDays: 7
     Metadata:
       SamResourceId: GenerateSignedUrlLambdaLogGroup
+  StartIngestionLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-start-ingestion-lambda
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: s3://centexautotitle.net/rag/services/451048839c64d6f24b64f74ae30edb66
+      Timeout: 900
+      Role:
+        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
+      Layers:
+      - Ref: CommonLayer
+      - Ref: DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: /opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies
+          USER_TABLE_NAME:
+            Ref: UserDetailsTable
+          USER_CHATBOT_TABLE_NAME:
+            Ref: UserChatBotTable
+          KNOWLEDGE_BASE_TABLE_NAME:
+            Ref: KnowledgeBaseTable
+          CHATBOT_TABLE_NAME:
+            Ref: ChatbotTable
+          BEDROCK_MODEL_ARN: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0
+          S3_BUCKET_NAME: open-search-service
+          AWS_ACCOUNT_ID:
+            Ref: AccountId
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /ingest
+            Method: post
+            RestApiId:
+              Ref: KnowledgeBaseAPI
+    Metadata:
+      SamResourceId: StartIngestionLambda
+  StartIngestionLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${StackName}-start-ingestion-lambda
+      RetentionInDays: 7
+    Metadata:
+      SamResourceId: StartIngestionLambdaLogGroup
+  CreateDataSourceLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-create-data-source-lambda
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: s3://centexautotitle.net/rag/services/d34b056bff2a4d66337ee1c3d42ef3dc
+      Timeout: 900
+      Role:
+        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
+      Layers:
+      - Ref: CommonLayer
+      - Ref: DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: /opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies
+          USER_TABLE_NAME:
+            Ref: UserDetailsTable
+          USER_CHATBOT_TABLE_NAME:
+            Ref: UserChatBotTable
+          KNOWLEDGE_BASE_TABLE_NAME:
+            Ref: KnowledgeBaseTable
+          TRANSFORM_DOCUMENTS_LAMBDA_ARN:
+            Fn::GetAtt:
+            - TransformDocumentsLambda
+            - Arn
+          INTERMEDIATE_BUCKET_NAME: intermediate-open-service
+          CHATBOT_TABLE_NAME:
+            Ref: ChatbotTable
+          BEDROCK_MODEL_ARN: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0
+          S3_BUCKET_NAME: open-search-service
+          AWS_ACCOUNT_ID:
+            Ref: AccountId
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /data-source
+            Method: post
+            RestApiId:
+              Ref: KnowledgeBaseAPI
+    Metadata:
+      SamResourceId: CreateDataSourceLambda
+  CreateDataSourceLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${StackName}-create-data-source-lambda
+      RetentionInDays: 7
+    Metadata:
+      SamResourceId: CreateDataSourceLambdaLogGroup
+  TransformDocumentsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-transform-documents-lambda
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: s3://centexautotitle.net/rag/services/3db13b0e60f7c88290d554655a5e96c8
+      Timeout: 900
+      Role:
+        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
+      Layers:
+      - Ref: CommonLayer
+      - Ref: DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: /opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies
+          S3_BUCKET_NAME: open-search-service
+    Metadata:
+      SamResourceId: TransformDocumentsLambda
+  TransformDocumentsLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${StackName}-transform-documents-lambda
+      RetentionInDays: 7
+    Metadata:
+      SamResourceId: TransformDocumentsLambdaLogGroup
   ChatbotTable:
     Type: AWS::DynamoDB::Table
     Properties:

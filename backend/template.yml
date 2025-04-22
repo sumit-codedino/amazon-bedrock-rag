@@ -39,64 +39,6 @@ Resources:
         - nodejs20.x
       RetentionPolicy: Delete
 
-  # Lambda Functions
-  CreateWebDataSourceLambda:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub "${StackName}-create-web-data-source-lambda"
-      Runtime: nodejs18.x
-      Handler: index.handler
-      CodeUri: ./lambda/dataSource
-      Timeout: 60
-      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
-      Events:
-        CustomResource:
-          Type: Api
-          Properties:
-            Path: /create-data-source
-            Method: post
-            RestApiId: !Ref KnowledgeBaseAPI
-      Policies:
-        - Statement:
-            - Effect: Allow
-              Action:
-                - bedrock:CreateDataSource
-                - bedrock:UpdateDataSource
-                - bedrock:DeleteDataSource
-              Resource: "*"
-
-  CreateWebDataSourceLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${StackName}-create-web-data-source-lambda"
-      RetentionInDays: 7
-
-  IngestLambda:
-    Type: AWS::Serverless::Function
-    Properties:
-      FunctionName: !Sub "${StackName}-ingest-lambda"
-      Runtime: nodejs20.x
-      Handler: index.handler
-      CodeUri: ./lambda/ingest
-      Timeout: 900
-      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
-      Environment:
-        Variables:
-          BUCKET_ARN: !Ref KnowledgeBaseBucket
-      Events:
-        ApiEvent:
-          Type: Api
-          Properties:
-            Path: /ingest
-            Method: post
-            RestApiId: !Ref KnowledgeBaseAPI
-
-  IngestLambdaLogGroup:
-    Type: AWS::Logs::LogGroup
-    Properties:
-      LogGroupName: !Sub "/aws/lambda/${StackName}-ingest-lambda"
-      RetentionInDays: 7
-
   QueryLambda:
     Type: AWS::Serverless::Function
     Properties:
@@ -207,6 +149,9 @@ Resources:
           USERS_TABLE_NAME: !Ref UserDetailsTable
           KNOWLEDGE_BASE_ROLE_ARN: "arn:aws:iam::905418372486:role/service-role/AmazonBedrockExecutionRoleForKnowledgeBase_9umgz"
           EMBEDDING_MODEL_ARN: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
+          S3_BUCKET_NAME: "open-search-service"
+          INTERMEDIATE_BUCKET_NAME: "intermediate-open-service"
+          OPEN_SEARCH_SERVICE_COLLECTION_ID: "etyv45i5pjaq67w4cwt1"
       Events:
         ApiEvent:
           Type: Api
@@ -282,6 +227,103 @@ Resources:
     Type: AWS::Logs::LogGroup
     Properties:
       LogGroupName: !Sub "/aws/lambda/${StackName}-generate-signed-url-lambda"
+      RetentionInDays: 7
+
+  StartIngestionLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${StackName}-start-ingestion-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/startIngestion
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Layers:
+        - !Ref CommonLayer
+        - !Ref DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: "/opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies"
+          USER_TABLE_NAME: !Ref UserDetailsTable
+          USER_CHATBOT_TABLE_NAME: !Ref UserChatBotTable
+          KNOWLEDGE_BASE_TABLE_NAME: !Ref KnowledgeBaseTable
+          CHATBOT_TABLE_NAME: !Ref ChatbotTable
+          BEDROCK_MODEL_ARN: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
+          S3_BUCKET_NAME: "open-search-service"
+          AWS_ACCOUNT_ID: !Ref AccountId
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /ingest
+            Method: post
+            RestApiId: !Ref KnowledgeBaseAPI
+
+  StartIngestionLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StackName}-start-ingestion-lambda"
+      RetentionInDays: 7
+
+  CreateDataSourceLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${StackName}-create-data-source-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/createDataSource
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Layers:
+        - !Ref CommonLayer
+        - !Ref DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: "/opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies"
+          USER_TABLE_NAME: !Ref UserDetailsTable
+          USER_CHATBOT_TABLE_NAME: !Ref UserChatBotTable
+          KNOWLEDGE_BASE_TABLE_NAME: !Ref KnowledgeBaseTable
+          TRANSFORM_DOCUMENTS_LAMBDA_ARN: !GetAtt TransformDocumentsLambda.Arn
+          INTERMEDIATE_BUCKET_NAME: "intermediate-open-service"
+          CHATBOT_TABLE_NAME: !Ref ChatbotTable
+          BEDROCK_MODEL_ARN: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
+          S3_BUCKET_NAME: "open-search-service"
+          AWS_ACCOUNT_ID: !Ref AccountId
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /data-source
+            Method: post
+            RestApiId: !Ref KnowledgeBaseAPI
+
+  CreateDataSourceLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StackName}-create-data-source-lambda"
+      RetentionInDays: 7
+
+  TransformDocumentsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${StackName}-transform-documents-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/transformDocuments
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Layers:
+        - !Ref CommonLayer
+        - !Ref DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: "/opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies"
+          S3_BUCKET_NAME: "open-search-service"
+
+  TransformDocumentsLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StackName}-transform-documents-lambda"
       RetentionInDays: 7
 
   ChatbotTable:

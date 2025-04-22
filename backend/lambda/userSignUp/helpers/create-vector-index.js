@@ -16,8 +16,7 @@ const createVectorIndex = async (userId) => {
   try {
     // Use the exact collection name from the policy
     const indexName = `${userId}-index`.toLowerCase();
-    const collectionEndpoint =
-      "https://xl54vdjv2ith3i43w4rc.us-east-1.aoss.amazonaws.com";
+    const collectionEndpoint = `https://${process.env.OPEN_SEARCH_SERVICE_COLLECTION_ID}.us-east-1.aoss.amazonaws.com`;
 
     // Create OpenSearch client with AWS SigV4 signing
     const client = new Client({
@@ -72,21 +71,16 @@ const createVectorIndex = async (userId) => {
               type: "text",
             },
             metadata: {
-              type: "object",
-              properties: {
-                chatbotId: {
-                  type: "keyword",
-                },
-                source: {
-                  type: "keyword",
-                },
-                content: {
-                  type: "text",
-                },
-                timestamp: {
-                  type: "date",
-                },
-              },
+              type: "text",
+            },
+            chatBotId: {
+              type: "text",
+            },
+            source: {
+              type: "text",
+            },
+            timestamp: {
+              type: "date",
             },
           },
         },
