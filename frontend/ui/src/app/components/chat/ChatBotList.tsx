@@ -5,9 +5,9 @@ import { ChatBot } from "../../type/chatBotList";
 interface ChatBotListProps {
   chatbots: ChatBot[];
   onCreateNew: () => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
-  onChat: (id: string) => void;
+  onEdit: (chatbot: ChatBot) => void;
+  onDelete: (chatbot: ChatBot) => void;
+  onChat: (chatbot: ChatBot) => void;
 }
 
 export const ChatBotList = ({
@@ -48,9 +48,9 @@ export const ChatBotList = ({
             name={chatbot.chatBotName}
             description={chatbot.chatBotDescription}
             lastUpdated={chatbot.lastUpdatedAt}
-            onEdit={() => onEdit(chatbot.chatBotId)}
-            onDelete={() => onDelete(chatbot.chatBotId)}
-            onChat={() => onChat(chatbot.chatBotId)}
+            onEdit={() => onEdit(chatbot)}
+            onDelete={() => onDelete(chatbot)}
+            onChat={() => onChat(chatbot)}
           />
         ))}
       </div>

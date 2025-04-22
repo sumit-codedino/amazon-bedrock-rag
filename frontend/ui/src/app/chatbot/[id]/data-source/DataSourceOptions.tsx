@@ -8,7 +8,7 @@ export default function DataSourceOptions({
   onSelect,
 }: DataSourceOptionsProps) {
   const sources = [
-    { id: "s3", name: "Amazon S3", icon: CloudArrowUpIcon },
+    { id: "s3", name: "Upload Files", icon: CloudArrowUpIcon },
     { id: "web", name: "Web Crawler", icon: GlobeAltIcon },
   ];
 

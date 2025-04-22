@@ -5,18 +5,18 @@ import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { ChatBotList } from "../components/chat/ChatBotList";
 import { useAppDispatch } from "../store/store";
-import { setUser } from "../store/slices/authSlice";
-import { setChatBotId } from "../store/slices/chatBotSlice";
+import { setChatBot } from "../store/slices/chatBotSlice";
 import { getAllChatBots } from "../../apis/get-all-chat-bots";
 import { setChatBotList } from "../store/slices/chatBotListSlice";
-import { ChatBot } from "../type/chatBotList";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
 import {
   setUserId,
+  setToken,
   setKnowledgeBaseId,
   setS3DataSourceId,
   setWebDataSourceId,
 } from "../store/slices/userSlice";
+import { ChatBot } from "../type/chatBotList";
 
 export default function ChatBotHomepage() {
   const router = useRouter();
@@ -29,7 +29,7 @@ export default function ChatBotHomepage() {
     const fetchToken = async () => {
       const token = await getToken();
       dispatch(setUserId(userId as string));
-      console.log(token);
+      dispatch(setToken(token as string));
     };
     fetchToken();
   }, [getToken]);
@@ -66,36 +66,23 @@ export default function ChatBotHomepage() {
     }
   }, [isLoaded, isSignedIn, router]);
 
-  useEffect(() => {
-    if (userId) {
-      dispatch(
-        setUser({
-          id: userId,
-          firstName: null, // These will be populated from your backend
-          lastName: null,
-          email: null,
-        })
-      );
-    }
-  }, [userId, dispatch]);
-
   const handleCreateNew = () => {
     router.push("/create-chat-bot");
   };
 
-  const handleEdit = (id: string) => {
-    dispatch(setChatBotId(id));
-    router.push(`/chatbot/${id}/edit`);
+  const handleEdit = (chatbot: ChatBot) => {
+    dispatch(setChatBot(chatbot));
+    router.push(`/chatbot/${chatbot.chatBotId}/edit`);
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = (chatbot: ChatBot) => {
     // Implement delete functionality
-    console.log("Delete chatbot:", id);
+    console.log("Delete chatbot:", chatbot.chatBotId);
   };
 
-  const handleChat = (id: string) => {
-    dispatch(setChatBotId(id));
-    router.push(`/chatbot/${id}/chat`);
+  const handleChat = (chatbot: ChatBot) => {
+    dispatch(setChatBot(chatbot));
+    router.push(`/chatbot/${chatbot.chatBotId}/chat`);
   };
 
   if (!isLoaded || !isSignedIn) {

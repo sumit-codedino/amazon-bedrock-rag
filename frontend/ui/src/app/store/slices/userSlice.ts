@@ -2,6 +2,7 @@ import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface UserState {
   userId: string | null;
+  token: string | null;
   knowledgeBaseId: string | null;
   s3DataSourceId: string | null;
   webDataSourceId: string | null;
@@ -9,6 +10,7 @@ interface UserState {
 
 const initialState: UserState = {
   userId: null,
+  token: null,
   knowledgeBaseId: null,
   s3DataSourceId: null,
   webDataSourceId: null,
@@ -20,6 +22,9 @@ const userSlice = createSlice({
   reducers: {
     setUserId: (state, action: PayloadAction<string>) => {
       state.userId = action.payload;
+    },
+    setToken: (state, action: PayloadAction<string>) => {
+      state.token = action.payload;
     },
     setKnowledgeBaseId: (state, action: PayloadAction<string>) => {
       state.knowledgeBaseId = action.payload;
@@ -35,6 +40,7 @@ const userSlice = createSlice({
 
 export const {
   setUserId,
+  setToken,
   setKnowledgeBaseId,
   setS3DataSourceId,
   setWebDataSourceId,

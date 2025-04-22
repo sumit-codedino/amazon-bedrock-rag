@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
   CloudArrowUpIcon,
   ArrowPathIcon,
@@ -7,6 +7,11 @@ import {
 } from "@heroicons/react/24/outline";
 import { generateSignedUrl } from "@/apis/generate-signed-url";
 import { useAuth } from "@clerk/nextjs";
+import { createDataSource } from "@/apis/create-data-source";
+import { useAppDispatch, useAppSelector } from "@/app/store/store";
+import { setS3DataSourceId } from "@/app/store/slices/userSlice";
+import { useRouter } from "next/navigation";
+import { startIngestion } from "@/apis/start-ingestion";
 
 interface S3UploadProps {
   chatBotId: string;
@@ -14,37 +19,98 @@ interface S3UploadProps {
 
 interface File {
   name: string;
+  size: number;
   isUploading: boolean;
   isUploaded: boolean;
   isError: boolean;
   error?: string;
   s3Url?: string;
   file?: globalThis.File;
+  uploadProgress?: number;
 }
+
+const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const SUPPORTED_FILE_TYPES = [".pdf", ".docx", ".txt"];
+const BATCH_SIZE = 5;
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 1000;
 
 export default function S3Upload({ chatBotId }: S3UploadProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { getToken } = useAuth();
+  const { getToken, userId } = useAuth();
+  const dispatch = useAppDispatch();
+  const router = useRouter();
+  const [token, setToken] = useState<string | null>(null);
+  const s3DataSourceId = useAppSelector((state) => state.user.s3DataSourceId);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY = 1000; // 1 second
+  useEffect(() => {
+    const fetchToken = async () => {
+      const token = await getToken();
+      if (!token) {
+        throw new Error("Token is not available");
+      }
+      setToken(token);
+    };
+    fetchToken();
+  }, [getToken]);
+
+  const validateFile = (file: globalThis.File): string | null => {
+    if (file.size > MAX_FILE_SIZE) {
+      return `File size exceeds ${MAX_FILE_SIZE / (1024 * 1024)}MB limit`;
+    }
+    const fileExtension = file.name
+      .substring(file.name.lastIndexOf("."))
+      .toLowerCase();
+    if (!SUPPORTED_FILE_TYPES.includes(fileExtension)) {
+      return `Unsupported file type. Supported types: ${SUPPORTED_FILE_TYPES.join(
+        ", "
+      )}`;
+    }
+    return null;
+  };
 
   const handleFileChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const newFiles = Array.from(e.target.files || []);
-      const newFileObjects: File[] = newFiles.map((file) => ({
+
+      // Validate files first
+      const validFiles = newFiles.filter((file) => {
+        const error = validateFile(file);
+        if (error) {
+          setFiles((prev) => [
+            ...prev,
+            {
+              name: file.name,
+              size: file.size,
+              isUploading: false,
+              isUploaded: false,
+              isError: true,
+              error,
+            },
+          ]);
+          return false;
+        }
+        return true;
+      });
+
+      if (validFiles.length === 0) return;
+
+      const newFileObjects: File[] = validFiles.map((file) => ({
         name: file.name,
+        size: file.size,
         isUploading: true,
         isUploaded: false,
         isError: false,
         file: file,
+        uploadProgress: 0,
       }));
 
       setFiles((prevFiles) => [...prevFiles, ...newFileObjects]);
 
-      // Get auth token
       const token = await getToken();
       if (!token) {
         setFiles((prevFiles) =>
@@ -58,161 +124,182 @@ export default function S3Upload({ chatBotId }: S3UploadProps) {
         return;
       }
 
-      // Process files in batches of 10
-      const BATCH_SIZE = 10;
-      const totalBatches = Math.ceil(newFiles.length / BATCH_SIZE);
-
-      for (let batchIndex = 0; batchIndex < totalBatches; batchIndex++) {
-        const startIndex = batchIndex * BATCH_SIZE;
-        const endIndex = Math.min(startIndex + BATCH_SIZE, newFiles.length);
-        const batch = newFiles.slice(startIndex, endIndex);
-
-        const batchPromises = batch.map(async (file, indexInBatch) => {
-          const fileIndex = files.length + startIndex + indexInBatch;
-          let retryCount = 0;
-          let lastError: Error | null = null;
-
-          while (retryCount < MAX_RETRIES) {
-            try {
-              // Get signed URL
-              const response = await generateSignedUrl({
-                fileName: file.name,
-                chatBotId,
-                token,
-              });
-
-              if (response.isError) {
-                throw new Error(response.error);
-              }
-
-              const { signedUrl } = response;
-
-              // Update file status
-              setFiles((prevFiles) => {
-                const updatedFiles = [...prevFiles];
-                updatedFiles[fileIndex] = {
-                  ...updatedFiles[fileIndex],
-                  isUploading: false,
-                  isUploaded: true,
-                  s3Url: signedUrl,
-                };
-                return updatedFiles;
-              });
-
-              return; // Success, exit retry loop
-            } catch (error) {
-              lastError =
-                error instanceof Error
-                  ? error
-                  : new Error("Unknown error occurred");
-              retryCount++;
-
-              if (retryCount < MAX_RETRIES) {
-                // Wait before retrying
-                await new Promise((resolve) =>
-                  setTimeout(resolve, RETRY_DELAY * retryCount)
-                );
-                continue;
-              }
-
-              // Update file status with error after all retries failed
-              setFiles((prevFiles) => {
-                const updatedFiles = [...prevFiles];
-                updatedFiles[fileIndex] = {
-                  ...updatedFiles[fileIndex],
-                  isUploading: false,
-                  isError: true,
-                  error:
-                    lastError?.message ||
-                    "Failed to upload file after multiple attempts",
-                };
-                return updatedFiles;
-              });
-            }
-          }
-        });
-
-        try {
-          // Wait for the current batch to complete
-          await Promise.all(batchPromises);
-        } catch (error) {
-          console.error(`Batch ${batchIndex + 1} failed:`, error);
-          // Continue with next batch even if current batch had errors
-        }
+      // Process files in batches
+      for (let i = 0; i < validFiles.length; i += BATCH_SIZE) {
+        const batch = validFiles.slice(i, i + BATCH_SIZE);
+        await processBatch(batch, i, token);
       }
     },
-    [chatBotId, files.length, getToken]
+    [chatBotId, getToken]
   );
+
+  const processBatch = async (
+    batch: globalThis.File[],
+    startIndex: number,
+    token: string
+  ) => {
+    const batchPromises = batch.map(async (file, indexInBatch) => {
+      const fileIndex = files.length + startIndex + indexInBatch;
+      let retryCount = 0;
+      let lastError: Error | null = null;
+
+      while (retryCount < MAX_RETRIES) {
+        try {
+          const response = await generateSignedUrl({
+            fileName: file.name,
+            chatBotId,
+            token,
+          });
+
+          if (response.isError) {
+            throw new Error(response.error);
+          }
+
+          const { signedUrl } = response;
+
+          setFiles((prevFiles) => {
+            const updatedFiles = [...prevFiles];
+            updatedFiles[fileIndex] = {
+              ...updatedFiles[fileIndex],
+              s3Url: signedUrl,
+              uploadProgress: 100,
+              isUploading: false,
+              isUploaded: true,
+            };
+            return updatedFiles;
+          });
+
+          return;
+        } catch (error) {
+          lastError =
+            error instanceof Error
+              ? error
+              : new Error("Unknown error occurred");
+          retryCount++;
+
+          if (retryCount < MAX_RETRIES) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, RETRY_DELAY * retryCount)
+            );
+            continue;
+          }
+
+          setFiles((prevFiles) => {
+            const updatedFiles = [...prevFiles];
+            updatedFiles[fileIndex] = {
+              ...updatedFiles[fileIndex],
+              isUploading: false,
+              isError: true,
+              error:
+                lastError?.message ||
+                "Failed to upload file after multiple attempts",
+            };
+            return updatedFiles;
+          });
+        }
+      }
+    });
+
+    try {
+      await Promise.all(batchPromises);
+    } catch (error) {
+      console.error("Batch processing error:", error);
+    }
+  };
 
   const removeFile = (index: number) => {
     setFiles((prevFiles) => {
       const updatedFiles = [...prevFiles];
-      // Clean up any ongoing uploads for this file
-      if (updatedFiles[index].isUploading) {
-        // You might want to abort any ongoing fetch requests here
-        // if you're using AbortController
+      if (updatedFiles[index].isUploading && abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = new AbortController();
       }
       return updatedFiles.filter((_, i) => i !== index);
     });
   };
 
   const handleUpload = async () => {
+    if (!token) {
+      throw new Error("Authentication required");
+    }
+
     setIsUploading(true);
-    setFiles((prevFiles) =>
-      prevFiles.map((file) => ({
-        ...file,
-        isUploading: true,
-        isUploaded: false,
-        isError: false,
-      }))
-    );
+    abortControllerRef.current = new AbortController();
+    const signal = abortControllerRef.current.signal;
 
     try {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      const uploadPromises = files.map(async (file, index) => {
         if (!file.s3Url || !file.file) {
           throw new Error(`Missing signed URL or file for ${file.name}`);
         }
 
-        try {
-          // Create a new request with proper headers
-          const response = await fetch(file.s3Url, {
-            method: "PUT",
-            body: file.file,
-          });
+        const xhr = new XMLHttpRequest();
+        return new Promise((resolve, reject) => {
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const progress = (event.loaded / event.total) * 100;
+              setFiles((prev) => {
+                const updated = [...prev];
+                updated[index] = {
+                  ...updated[index],
+                  uploadProgress: progress,
+                };
+                return updated;
+              });
+            }
+          };
 
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Failed to upload ${file.name}: ${errorText}`);
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(xhr.response);
+            } else {
+              reject(
+                new Error(`Failed to upload ${file.name}: ${xhr.statusText}`)
+              );
+            }
+          };
+
+          xhr.onerror = () =>
+            reject(new Error(`Failed to upload ${file.name}`));
+          xhr.ontimeout = () =>
+            reject(new Error(`Upload timeout for ${file.name}`));
+
+          if (!file.s3Url) {
+            reject(new Error(`Missing signed URL for ${file.name}`));
+            return;
           }
 
-          // Update file status to uploaded
-          setFiles((prevFiles) => {
-            const updatedFiles = [...prevFiles];
-            updatedFiles[i] = {
-              ...updatedFiles[i],
-              isUploading: false,
-              isUploaded: true,
-            };
-            return updatedFiles;
-          });
-        } catch (error) {
-          // Update file status with error
-          setFiles((prevFiles) => {
-            const updatedFiles = [...prevFiles];
-            updatedFiles[i] = {
-              ...updatedFiles[i],
-              isUploading: false,
-              isError: true,
-              error:
-                error instanceof Error
-                  ? error.message
-                  : "Failed to upload file",
-            };
-            return updatedFiles;
-          });
+          xhr.open("PUT", file.s3Url);
+          xhr.send(file.file);
+        });
+      });
+
+      await Promise.all(uploadPromises);
+
+      if (!s3DataSourceId) {
+        const response = await createDataSource({
+          chatBotId,
+          dataSourceType: "s3",
+          userId: userId || "",
+          token,
+        });
+        if (response.isError) {
+          throw new Error(response.error);
         }
+        dispatch(setS3DataSourceId(response.dataSourceId || ""));
       }
+
+      await startIngestion({
+        userId: userId || "",
+        dataSourceId: s3DataSourceId || "",
+        dataSourceType: "s3",
+        token,
+      });
+
+      router.push(`/chatbot/${chatBotId}/chat`);
+    } catch (error) {
+      console.error("Upload error:", error);
+      // Handle error appropriately
     } finally {
       setIsUploading(false);
       if (fileInputRef.current) {
@@ -225,6 +312,9 @@ export default function S3Upload({ chatBotId }: S3UploadProps) {
   const isAnyFileError = files.some((file) => file.isError);
   const areAllFilesReady =
     files.length > 0 && files.every((file) => file.isUploaded);
+  const totalProgress =
+    files.reduce((acc, file) => acc + (file.uploadProgress || 0), 0) /
+    files.length;
 
   return (
     <div className="space-y-4">
@@ -241,7 +331,7 @@ export default function S3Upload({ chatBotId }: S3UploadProps) {
               drop
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              PDF, DOCX, TXT files
+              PDF, DOCX, TXT files (max {MAX_FILE_SIZE / (1024 * 1024)}MB)
             </p>
           </div>
           <input
@@ -251,7 +341,7 @@ export default function S3Upload({ chatBotId }: S3UploadProps) {
             className="hidden"
             multiple
             onChange={handleFileChange}
-            accept=".pdf,.docx,.txt"
+            accept={SUPPORTED_FILE_TYPES.join(",")}
           />
         </label>
       </div>
@@ -268,7 +358,12 @@ export default function S3Upload({ chatBotId }: S3UploadProps) {
                 <div className="flex items-center space-x-2">
                   <span className="text-sm">{file.name}</span>
                   {file.isUploading && (
-                    <ArrowPathIcon className="w-4 h-4 text-blue-500 animate-spin" />
+                    <div className="flex items-center space-x-2">
+                      <ArrowPathIcon className="w-4 h-4 text-blue-500 animate-spin" />
+                      <span className="text-xs">
+                        {Math.round(file.uploadProgress || 0)}%
+                      </span>
+                    </div>
                   )}
                   {file.isUploaded && (
                     <CheckCircleIcon className="w-4 h-4 text-green-500" />
@@ -292,6 +387,14 @@ export default function S3Upload({ chatBotId }: S3UploadProps) {
               </li>
             ))}
           </ul>
+          {isUploading && (
+            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full"
+                style={{ width: `${totalProgress}%` }}
+              ></div>
+            </div>
+          )}
           <div className="flex justify-end mt-4">
             <button
               type="button"

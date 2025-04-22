@@ -24,7 +24,10 @@ const startIngestionJob = async (knowledgeBaseId, dataSourceId) => {
 
     const response = await client.send(command);
     logger.info("Ingestion job started", { response });
-    return { isError: false };
+    return {
+      isError: false,
+      jobId: response.ingestionJob.ingestionJobId,
+    };
   } catch (error) {
     logger.error("Error starting ingestion job:", {
       error: error.message,

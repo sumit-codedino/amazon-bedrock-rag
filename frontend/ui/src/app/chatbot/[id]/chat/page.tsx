@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/app/components/ui/Button";
 import { Card } from "@/app/components/ui/Card";
 import { useAppDispatch, useAppSelector } from "@/app/store/store";
+import ChatbotHeader from "../ChatBotHeader";
 
 interface Message {
   id: string;
@@ -16,9 +17,9 @@ interface Message {
 
 export default function ChatPage({ params }: { params: { id: string } }) {
   const dispatch = useAppDispatch();
+  const chatBotName = useAppSelector((state) => state.chatBot.chatBotName);
   const chatBotId = useAppSelector((state) => state.chatBot.chatBotId);
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const { user } = useUser();
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -85,12 +86,13 @@ export default function ChatPage({ params }: { params: { id: string } }) {
   };
 
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col" style={{ height: "91vh" }}>
+      <ChatbotHeader
+        chatbotName={chatBotName || ""}
+        chatbotId={chatBotId || ""}
+      />
       {/* Messages Area - Height calculated to fit remaining space */}
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{ height: "calc(100vh - 9rem)" }}
-      >
+      <div className="flex-1 overflow-y-auto" style={{ height: "80vh" }}>
         <div className="container mx-auto max-w-3xl p-4 space-y-4">
           {messages.length === 0 ? (
             <div className="flex items-center justify-center h-full">

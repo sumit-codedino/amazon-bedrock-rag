@@ -1,5 +1,4 @@
 const processor = require("./processor");
-const config = require("./config");
 const path = require("path");
 
 const isLambda = !!process.env.AWS_REGION;
@@ -42,8 +41,8 @@ exports.handler = async (event) => {
     });
 
     return {
-      statusCode: config.STATUS_CODES.INTERNAL_SERVER_ERROR,
-      body: JSON.stringify({ error: config.ERROR_MESSAGES.UNKNOWN_ERROR }),
+      statusCode: 500,
+      body: JSON.stringify({ error: "Unknown error starting ingestion" }),
     };
   }
 };

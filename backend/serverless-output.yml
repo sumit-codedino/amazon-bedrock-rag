@@ -285,7 +285,7 @@ Resources:
         Fn::Sub: ${StackName}-start-ingestion-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/451048839c64d6f24b64f74ae30edb66
+      CodeUri: s3://centexautotitle.net/rag/services/ee1a3cd26c59c219abd0601c5a7b516a
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -303,6 +303,8 @@ Resources:
             Ref: KnowledgeBaseTable
           CHATBOT_TABLE_NAME:
             Ref: ChatbotTable
+          INGESTION_JOB_TABLE_NAME:
+            Ref: IngestionJobTable
           BEDROCK_MODEL_ARN: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0
           S3_BUCKET_NAME: open-search-service
           AWS_ACCOUNT_ID:
@@ -489,6 +491,34 @@ Resources:
         WriteCapacityUnits: 10
     Metadata:
       SamResourceId: UserChatBotTable
+  IngestionJobTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName:
+        Fn::Sub: ${StackName}-ingestion-job-table
+      AttributeDefinitions:
+      - AttributeName: jobId
+        AttributeType: S
+      - AttributeName: createdBy
+        AttributeType: S
+      KeySchema:
+      - AttributeName: jobId
+        KeyType: HASH
+      GlobalSecondaryIndexes:
+      - IndexName: createdBy-index
+        KeySchema:
+        - AttributeName: createdBy
+          KeyType: HASH
+        Projection:
+          ProjectionType: ALL
+        ProvisionedThroughput:
+          ReadCapacityUnits: 1
+          WriteCapacityUnits: 1
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
+    Metadata:
+      SamResourceId: IngestionJobTable
   KnowledgeBaseAPI:
     Type: AWS::Serverless::Api
     Properties:

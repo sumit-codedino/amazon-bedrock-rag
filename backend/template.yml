@@ -249,6 +249,7 @@ Resources:
           USER_CHATBOT_TABLE_NAME: !Ref UserChatBotTable
           KNOWLEDGE_BASE_TABLE_NAME: !Ref KnowledgeBaseTable
           CHATBOT_TABLE_NAME: !Ref ChatbotTable
+          INGESTION_JOB_TABLE_NAME: !Ref IngestionJobTable
           BEDROCK_MODEL_ARN: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
           S3_BUCKET_NAME: "open-search-service"
           AWS_ACCOUNT_ID: !Ref AccountId
@@ -402,6 +403,32 @@ Resources:
       ProvisionedThroughput:
         ReadCapacityUnits: 10
         WriteCapacityUnits: 10
+
+  IngestionJobTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: !Sub "${StackName}-ingestion-job-table"
+      AttributeDefinitions:
+        - AttributeName: jobId
+          AttributeType: S
+        - AttributeName: createdBy
+          AttributeType: S
+      KeySchema:
+        - AttributeName: jobId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: createdBy-index
+          KeySchema:
+            - AttributeName: createdBy
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 1
+            WriteCapacityUnits: 1
+      ProvisionedThroughput:
+        ReadCapacityUnits: 1
+        WriteCapacityUnits: 1
 
   KnowledgeBaseAPI:
     Type: AWS::Serverless::Api
