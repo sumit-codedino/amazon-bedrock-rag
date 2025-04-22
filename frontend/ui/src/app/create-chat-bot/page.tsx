@@ -68,7 +68,7 @@ export default function CreateChatbotPage() {
             s3DataSourceId: null,
             webPageDataSourceId: null,
             knowledgeBaseId: null,
-            lastUpdated: new Date().toISOString(),
+            lastUpdatedAt: new Date().toISOString(),
           })
         );
         dispatch(
@@ -80,9 +80,10 @@ export default function CreateChatbotPage() {
             s3DataSourceId: null,
             webPageDataSourceId: null,
             knowledgeBaseId: null,
+            lastUpdatedAt: new Date().toISOString(),
           })
         );
-        router.push(`/chatbot/${result.chatBotId}/chat`);
+        router.push(`/chatbot/${result.chatBotId}/data-source`);
       }
     } catch (err) {
       setError("An unexpected error occurred");

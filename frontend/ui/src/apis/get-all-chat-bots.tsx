@@ -4,6 +4,9 @@ interface GetAllChatBotsResponse {
   isError: boolean;
   error?: string;
   chatBotDetails?: ChatBotDetail[];
+  knowledgeBaseId?: string;
+  s3DataSourceId?: string;
+  webDataSourceId?: string;
 }
 
 interface ChatBotDetail {
@@ -33,6 +36,9 @@ export const getAllChatBots = async (
     return {
       isError: false,
       chatBotDetails: parsedData.chatBotDetails,
+      knowledgeBaseId: parsedData.knowledgeBaseId,
+      s3DataSourceId: parsedData.s3DataSourceId,
+      webDataSourceId: parsedData.webDataSourceId,
     };
   } catch (error) {
     console.error("Error fetching chatbots:", error);

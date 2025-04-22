@@ -11,6 +11,12 @@ import { getAllChatBots } from "../../apis/get-all-chat-bots";
 import { setChatBotList } from "../store/slices/chatBotListSlice";
 import { ChatBot } from "../type/chatBotList";
 import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import {
+  setUserId,
+  setKnowledgeBaseId,
+  setS3DataSourceId,
+  setWebDataSourceId,
+} from "../store/slices/userSlice";
 
 export default function ChatBotHomepage() {
   const router = useRouter();
@@ -22,6 +28,7 @@ export default function ChatBotHomepage() {
   useEffect(() => {
     const fetchToken = async () => {
       const token = await getToken();
+      dispatch(setUserId(userId as string));
       console.log(token);
     };
     fetchToken();
@@ -39,6 +46,9 @@ export default function ChatBotHomepage() {
             console.log("Chatbots:", response.chatBotDetails);
             setChatBots(response.chatBotDetails || []);
             dispatch(setChatBotList(response.chatBotDetails || []));
+            dispatch(setKnowledgeBaseId(response.knowledgeBaseId || ""));
+            dispatch(setS3DataSourceId(response.s3DataSourceId || ""));
+            dispatch(setWebDataSourceId(response.webDataSourceId || ""));
           }
         } catch (error) {
           console.error("Error fetching chatbots:", error);

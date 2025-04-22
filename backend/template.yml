@@ -152,6 +152,7 @@ Resources:
           S3_BUCKET_NAME: "open-search-service"
           INTERMEDIATE_BUCKET_NAME: "intermediate-open-service"
           OPEN_SEARCH_SERVICE_COLLECTION_ID: "etyv45i5pjaq67w4cwt1"
+          AWS_ACCOUNT_ID: !Ref AccountId
       Events:
         ApiEvent:
           Type: Api

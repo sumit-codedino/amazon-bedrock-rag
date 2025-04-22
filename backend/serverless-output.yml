@@ -179,6 +179,8 @@ Resources:
           S3_BUCKET_NAME: open-search-service
           INTERMEDIATE_BUCKET_NAME: intermediate-open-service
           OPEN_SEARCH_SERVICE_COLLECTION_ID: etyv45i5pjaq67w4cwt1
+          AWS_ACCOUNT_ID:
+            Ref: AccountId
       Events:
         ApiEvent:
           Type: Api
@@ -330,7 +332,7 @@ Resources:
         Fn::Sub: ${StackName}-create-data-source-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/d34b056bff2a4d66337ee1c3d42ef3dc
+      CodeUri: s3://centexautotitle.net/rag/services/4825c09e18eaaa8dbd99b8ca4c363a7e
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role

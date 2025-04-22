@@ -4,6 +4,7 @@ import chatReducer from "./slices/chatSlice";
 import authReducer from "./slices/authSlice";
 import chatBotReducer from "./slices/chatBotSlice";
 import chatBotListReducer from "./slices/chatBotListSlice";
+import userReducer from "./slices/userSlice";
 
 // Import your reducers here
 // import chatReducer from './slices/chatSlice';
@@ -15,6 +16,7 @@ export const store = configureStore({
     auth: authReducer,
     chatBot: chatBotReducer,
     chatBotList: chatBotListReducer,
+    user: userReducer,
     // Add your reducers here
     // chat: chatReducer,
     // auth: authReducer,
