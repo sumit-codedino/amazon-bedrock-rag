@@ -1,45 +1,96 @@
 "use client";
 
 import { useState } from "react";
-import { useParams } from "next/navigation";
-import DataSourceOptions from "./DataSourceOptions";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/app/components/ui/Button";
+import { Card } from "@/app/components/ui/Card";
 import S3Upload from "./S3Upload";
 import WebCrawlerConfig from "./WebCrawlerConfig";
+import { useParams } from "next/navigation";
+
+type DataSourceType = "s3" | "web";
 
 export default function DataSourcePage() {
   const { id } = useParams();
-  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  const router = useRouter();
+  const { user, token } = useAuth();
+  const [selectedSource, setSelectedSource] = useState<DataSourceType>("s3");
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleSourceSelect = (source: string) => {
+  const handleSourceChange = (source: DataSourceType) => {
     setSelectedSource(source);
-  };
-
-  console.log(id);
-
-  const renderDataSourceComponent = () => {
-    switch (selectedSource) {
-      case "s3":
-        return <S3Upload chatBotId={id as string} />;
-      case "web":
-        return <WebCrawlerConfig chatBotId={id as string} />;
-      default:
-        return <DataSourceOptions onSelect={handleSourceSelect} />;
-    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Add Data Source
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
+            Configure Data Source
           </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Choose a data source to add to your chatbot
-          </p>
-        </div>
 
-        {renderDataSourceComponent()}
+          <Card>
+            <div className="space-y-6">
+              {error && (
+                <div className="p-4 text-red-700 bg-red-100 rounded-md">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-4">
+                <h2 className="text-lg font-medium text-gray-900 dark:text-white">
+                  Select Data Source Type
+                </h2>
+                <div className="flex space-x-4">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="dataSource"
+                      value="s3"
+                      checked={selectedSource === "s3"}
+                      onChange={() => handleSourceChange("s3")}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      File Upload
+                    </span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="dataSource"
+                      value="web"
+                      checked={selectedSource === "web"}
+                      onChange={() => handleSourceChange("web")}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      Web Crawler
+                    </span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="mt-6">
+                {selectedSource === "s3" ? (
+                  <S3Upload
+                    chatBotId={id as string}
+                    userId={user?.id || ""}
+                    token={token || ""}
+                  />
+                ) : (
+                  <WebCrawlerConfig
+                    chatBotId={id as string}
+                    userId={user?.id || ""}
+                    token={token || ""}
+                  />
+                )}
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -3,9 +3,15 @@ import { GlobeAltIcon } from "@heroicons/react/24/outline";
 
 interface WebCrawlerConfigProps {
   chatBotId: string;
+  userId: string;
+  token: string;
 }
 
-export default function WebCrawlerConfig({ chatBotId }: WebCrawlerConfigProps) {
+export default function WebCrawlerConfig({
+  chatBotId,
+  userId,
+  token,
+}: WebCrawlerConfigProps) {
   const [urls, setUrls] = useState<string[]>([]);
   const [newUrl, setNewUrl] = useState("");
 

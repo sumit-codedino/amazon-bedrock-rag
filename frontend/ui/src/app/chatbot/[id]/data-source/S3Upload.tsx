@@ -15,6 +15,8 @@ import { startIngestion } from "@/apis/start-ingestion";
 
 interface S3UploadProps {
   chatBotId: string;
+  userId: string;
+  token: string;
 }
 
 interface File {
@@ -35,28 +37,15 @@ const BATCH_SIZE = 5;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
 
-export default function S3Upload({ chatBotId }: S3UploadProps) {
+export default function S3Upload({ chatBotId, userId, token }: S3UploadProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { getToken, userId } = useAuth();
   const dispatch = useAppDispatch();
   const router = useRouter();
-  const [token, setToken] = useState<string | null>(null);
   const s3DataSourceId = useAppSelector((state) => state.user.s3DataSourceId);
   const abortControllerRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    const fetchToken = async () => {
-      const token = await getToken();
-      if (!token) {
-        throw new Error("Token is not available");
-      }
-      setToken(token);
-    };
-    fetchToken();
-  }, [getToken]);
 
   const validateFile = (file: globalThis.File): string | null => {
     if (file.size > MAX_FILE_SIZE) {
@@ -111,26 +100,13 @@ export default function S3Upload({ chatBotId }: S3UploadProps) {
 
       setFiles((prevFiles) => [...prevFiles, ...newFileObjects]);
 
-      const token = await getToken();
-      if (!token) {
-        setFiles((prevFiles) =>
-          prevFiles.map((file) => ({
-            ...file,
-            isUploading: false,
-            isError: true,
-            error: "Authentication required",
-          }))
-        );
-        return;
-      }
-
       // Process files in batches
       for (let i = 0; i < validFiles.length; i += BATCH_SIZE) {
         const batch = validFiles.slice(i, i + BATCH_SIZE);
         await processBatch(batch, i, token);
       }
     },
-    [chatBotId, getToken]
+    [chatBotId, token]
   );
 
   const processBatch = async (
@@ -318,7 +294,7 @@ export default function S3Upload({ chatBotId }: S3UploadProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-medium">Upload Files to S3</h3>
+      <h3 className="text-lg font-medium">Upload Files</h3>
       <div className="flex items-center justify-center w-full">
         <label
           htmlFor="file-upload"
