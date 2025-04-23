@@ -23,7 +23,7 @@ Resources:
       LayerName:
         Fn::Sub: ${StackName}-common-layer
       Description: Common utilities and services for all Lambda functions
-      ContentUri: s3://centexautotitle.net/rag/services/3fe60800fc1f9953f901122907d82af4
+      ContentUri: s3://centexautotitle.net/rag/services/11e8928b5b067ae00e83685e3f3bbc94
       CompatibleRuntimes:
       - nodejs20.x
       RetentionPolicy: Delete
@@ -162,7 +162,7 @@ Resources:
         Fn::Sub: ${StackName}-user-sign-up-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/91f42aea61767f94700b7e423eb026b2
+      CodeUri: s3://centexautotitle.net/rag/services/2a28835b413e870141a54ee81189d4ff
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
@@ -178,7 +178,9 @@ Resources:
           EMBEDDING_MODEL_ARN: arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0
           S3_BUCKET_NAME: open-search-service
           INTERMEDIATE_BUCKET_NAME: intermediate-open-service
-          OPEN_SEARCH_SERVICE_COLLECTION_ID: etyv45i5pjaq67w4cwt1
+          OPEN_SEARCH_SERVICE_COLLECTION_ID: '0zvm36wbjq6vn7yjsz44'
+          KNOWLEDGE_BASE_TABLE_NAME:
+            Ref: KnowledgeBaseTable
           AWS_ACCOUNT_ID:
             Ref: AccountId
       Events:

@@ -47,13 +47,16 @@ const checkIndexExists = async (indexName) => {
 
 const createKnowledgeBaseWithRetry = async (params, retries = 3) => {
   for (let i = 0; i < retries; i++) {
-    try {
-      return await createKnowledgeBase(params);
-    } catch (error) {
-      if (i === retries - 1) throw error;
-      await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
+    const result = await createKnowledgeBase(params);
+    if (!result.isError) {
+      return result;
     }
+    logger.info(
+      `Retry attempt ${i + 1} failed, waiting 3 seconds before next attempt...`
+    );
+    await new Promise((resolve) => setTimeout(resolve, 3000));
   }
+  return { isError: true, error: "Failed to create knowledge base" };
 };
 
 module.exports = async (userId, indexName) => {
@@ -110,7 +113,19 @@ module.exports = async (userId, indexName) => {
 
     const result = await createKnowledgeBaseWithRetry(params);
 
-    logger.info("Knowledge base created:", result.data);
+    if (result.isError) {
+      logger.error("Error creating knowledge base:", {
+        error: result.error,
+      });
+      return {
+        isError: true,
+        error: result.error,
+      };
+    }
+
+    logger.info("Knowledge base created:", {
+      knowledgeBaseId: result.data.knowledgeBase.knowledgeBaseId,
+    });
 
     const knowledgeBaseId = result.data.knowledgeBase.knowledgeBaseId;
 

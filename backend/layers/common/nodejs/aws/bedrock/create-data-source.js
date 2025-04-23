@@ -28,6 +28,7 @@ const createDataSource = async (params) => {
     return {
       isError: true,
       message: "Error creating data source",
+      error: error.message,
     };
   }
 };

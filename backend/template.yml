@@ -151,7 +151,8 @@ Resources:
           EMBEDDING_MODEL_ARN: "arn:aws:bedrock:us-east-1::foundation-model/amazon.titan-embed-text-v2:0"
           S3_BUCKET_NAME: "open-search-service"
           INTERMEDIATE_BUCKET_NAME: "intermediate-open-service"
-          OPEN_SEARCH_SERVICE_COLLECTION_ID: "etyv45i5pjaq67w4cwt1"
+          OPEN_SEARCH_SERVICE_COLLECTION_ID: "0zvm36wbjq6vn7yjsz44"
+          KNOWLEDGE_BASE_TABLE_NAME: !Ref KnowledgeBaseTable
           AWS_ACCOUNT_ID: !Ref AccountId
       Events:
         ApiEvent:

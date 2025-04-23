@@ -28,6 +28,8 @@ const createKnowledgeBase = async (params) => {
     return {
       isError: true,
       message: "Error creating knowledge base",
+      error: error.message,
+      stack: error.stack,
     };
   }
 };
