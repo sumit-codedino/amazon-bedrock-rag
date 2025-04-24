@@ -287,7 +287,7 @@ Resources:
         Fn::Sub: ${StackName}-start-ingestion-lambda
       Runtime: nodejs20.x
       Handler: index.handler
-      CodeUri: s3://centexautotitle.net/rag/services/ee1a3cd26c59c219abd0601c5a7b516a
+      CodeUri: s3://centexautotitle.net/rag/services/f848f3fd5e87e45affa38afc611aba51
       Timeout: 900
       Role:
         Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role

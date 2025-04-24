@@ -10,6 +10,13 @@ const logger = require(isLambda
   ? "utils/logger"
   : path.join(basePath, "utils/logger"));
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token, X-Amz-User-Agent",
+};
+
 /**
  * Lambda handler for starting ingestion
  * @param {Object} event - The Lambda event object
@@ -19,20 +26,23 @@ const logger = require(isLambda
 exports.handler = async (event) => {
   logger.info("Received event:", event);
 
+  // Handle preflight requests
+  if (event.httpMethod === "OPTIONS") {
+    return {
+      statusCode: 200,
+      headers: corsHeaders,
+      body: "",
+    };
+  }
+
   try {
     const startIngestionResult = await processor.startIngestion(event);
 
     logger.info("Start ingestion result:", startIngestionResult);
 
     return {
-      statusCode: startIngestionResult.statusCode,
-      body: JSON.stringify(startIngestionResult.body),
-      headers: {
-        "Access-Control-Allow-Origin": "*",
-        "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-        "Access-Control-Allow-Headers":
-          "Content-Type, Authorization, X-Amz-Date, X-Api-Key, X-Amz-Security-Token, X-Amz-User-Agent",
-      },
+      ...startIngestionResult,
+      headers: corsHeaders,
     };
   } catch (error) {
     logger.error("Unexpected error starting ingestion:", {
@@ -42,6 +52,7 @@ exports.handler = async (event) => {
 
     return {
       statusCode: 500,
+      headers: corsHeaders,
       body: JSON.stringify({ error: "Unknown error starting ingestion" }),
     };
   }

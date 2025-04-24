@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Button } from "../ui/Button";
 import { useAuth } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import {
   SignedIn,
   SignedOut,
@@ -11,6 +12,10 @@ import {
   SignInButton,
   SignUpButton,
 } from "@clerk/nextjs";
+import { useEffect, useState } from "react";
+
+import { useAppDispatch } from "@/app/store/store";
+import { setToken, setUserId } from "@/app/store/slices/userSlice";
 
 interface HeaderProps {
   navigationItems?: {
@@ -32,7 +37,28 @@ const privateNavigationItems = [
 
 export const Header = ({ navigationItems = [] }: HeaderProps) => {
   const pathname = usePathname();
-  const { signOut, isSignedIn } = useAuth();
+  const dispatch = useAppDispatch();
+  const { signOut, isSignedIn, getToken } = useAuth();
+  const { user, isLoaded } = useUser();
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    const initializeUser = async () => {
+      if (isSignedIn && isLoaded) {
+        const token = await getToken();
+        dispatch(setToken(token || ""));
+        dispatch(setUserId(user?.id || ""));
+        setIsInitialized(true);
+      } else if (!isSignedIn) {
+        setIsInitialized(true);
+      }
+    };
+    initializeUser();
+  }, [isSignedIn, getToken, isLoaded, user?.id]);
+
+  if (!isInitialized) {
+    return null; // or a loading spinner
+  }
 
   const isActive = (path: string) => {
     return pathname === path;
@@ -40,6 +66,8 @@ export const Header = ({ navigationItems = [] }: HeaderProps) => {
 
   const handleSignOut = async () => {
     await signOut();
+    dispatch(setToken(""));
+    dispatch(setUserId(""));
   };
 
   const currentNavigationItems = isSignedIn

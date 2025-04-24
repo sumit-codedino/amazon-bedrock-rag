@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import { useEffect, useState } from "react";
 import { ChatBotList } from "../components/chat/ChatBotList";
-import { useAppDispatch } from "../store/store";
+import { useAppDispatch, useAppSelector } from "../store/store";
 import { setChatBot } from "../store/slices/chatBotSlice";
 import { getAllChatBots } from "../../apis/get-all-chat-bots";
 import { setChatBotList } from "../store/slices/chatBotListSlice";
@@ -20,10 +20,11 @@ import { ChatBot } from "../type/chatBotList";
 
 export default function ChatBotHomepage() {
   const router = useRouter();
-  const { userId, isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken } = useAuth();
   const dispatch = useAppDispatch();
   const [chatBots, setChatBots] = useState<ChatBot[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const userId = useAppSelector((state) => state.user.userId);
 
   useEffect(() => {
     const fetchToken = async () => {

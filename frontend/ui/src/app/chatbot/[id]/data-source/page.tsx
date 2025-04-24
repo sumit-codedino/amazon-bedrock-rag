@@ -1,22 +1,18 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/app/components/ui/Button";
 import { Card } from "@/app/components/ui/Card";
-import S3Upload from "./S3Upload";
+import S3Upload from "../../../components/s3upload/index";
 import WebCrawlerConfig from "./WebCrawlerConfig";
 import { useParams } from "next/navigation";
-
+import { useAppSelector } from "@/app/store/store";
 type DataSourceType = "s3" | "web";
 
 export default function DataSourcePage() {
+  const token = useAppSelector((state) => state.user.token);
+  const userId = useAppSelector((state) => state.user.userId);
   const { id } = useParams();
-  const router = useRouter();
-  const { user, token } = useAuth();
   const [selectedSource, setSelectedSource] = useState<DataSourceType>("s3");
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSourceChange = (source: DataSourceType) => {
@@ -77,14 +73,16 @@ export default function DataSourcePage() {
                 {selectedSource === "s3" ? (
                   <S3Upload
                     chatBotId={id as string}
-                    userId={user?.id || ""}
+                    userId={userId || ""}
                     token={token || ""}
+                    setError={setError}
                   />
                 ) : (
                   <WebCrawlerConfig
                     chatBotId={id as string}
-                    userId={user?.id || ""}
+                    userId={userId || ""}
                     token={token || ""}
+                    setError={setError}
                   />
                 )}
               </div>

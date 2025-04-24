@@ -7,7 +7,7 @@ interface StartIngestionParams {
   token: string;
 }
 
-const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/dev/ingest`;
+const API_URL = `${process.env.NEXT_PUBLIC_API_URL}/ingest`;
 
 export const startIngestion = async (params: StartIngestionParams) => {
   try {

@@ -5,13 +5,18 @@ interface WebCrawlerConfigProps {
   chatBotId: string;
   userId: string;
   token: string;
+  setError: (error: string) => void;
 }
 
 export default function WebCrawlerConfig({
   chatBotId,
   userId,
   token,
+  setError,
 }: WebCrawlerConfigProps) {
+  console.log("userId", userId);
+  console.log("token", token);
+  console.log("chatBotId", chatBotId);
   const [urls, setUrls] = useState<string[]>([]);
   const [newUrl, setNewUrl] = useState("");
 

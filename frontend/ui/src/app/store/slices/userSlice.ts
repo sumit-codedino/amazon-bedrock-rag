@@ -1,16 +1,16 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
 interface UserState {
-  userId: string | null;
-  token: string | null;
+  userId: string;
+  token: string;
   knowledgeBaseId: string | null;
   s3DataSourceId: string | null;
   webDataSourceId: string | null;
 }
 
 const initialState: UserState = {
-  userId: null,
-  token: null,
+  userId: "",
+  token: "",
   knowledgeBaseId: null,
   s3DataSourceId: null,
   webDataSourceId: null,
