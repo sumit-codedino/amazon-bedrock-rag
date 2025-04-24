@@ -329,6 +329,43 @@ Resources:
       RetentionInDays: 7
     Metadata:
       SamResourceId: StartIngestionLambdaLogGroup
+  GetUserDetailsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName:
+        Fn::Sub: ${StackName}-get-user-details-lambda
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: s3://centexautotitle.net/rag/services/7028f457deea539dff94d843833a4700
+      Timeout: 900
+      Role:
+        Fn::Sub: arn:aws:iam::${AccountId}:role/lambda-admin-role
+      Layers:
+      - Ref: CommonLayer
+      - Ref: DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: /opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies
+          USER_TABLE_NAME:
+            Ref: UserDetailsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /user
+            Method: get
+            RestApiId:
+              Ref: KnowledgeBaseAPI
+    Metadata:
+      SamResourceId: GetUserDetailsLambda
+  GetUserDetailsLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName:
+        Fn::Sub: /aws/lambda/${StackName}-get-user-details-lambda
+      RetentionInDays: 7
+    Metadata:
+      SamResourceId: GetUserDetailsLambdaLogGroup
   CreateDataSourceLambda:
     Type: AWS::Serverless::Function
     Properties:

@@ -268,6 +268,36 @@ Resources:
       LogGroupName: !Sub "/aws/lambda/${StackName}-start-ingestion-lambda"
       RetentionInDays: 7
 
+  GetUserDetailsLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "${StackName}-get-user-details-lambda"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      CodeUri: ./lambda/getUserDetails
+      Timeout: 900
+      Role: !Sub "arn:aws:iam::${AccountId}:role/lambda-admin-role"
+      Layers:
+        - !Ref CommonLayer
+        - !Ref DependenciesLayer
+      Environment:
+        Variables:
+          NODE_PATH: "/opt/nodejs:/opt/nodejs/node_modules:/opt/common:/opt/dependencies"
+          USER_TABLE_NAME: !Ref UserDetailsTable
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /user
+            Method: get
+            RestApiId: !Ref KnowledgeBaseAPI
+
+  GetUserDetailsLambdaLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${StackName}-get-user-details-lambda"
+      RetentionInDays: 7
+
   CreateDataSourceLambda:
     Type: AWS::Serverless::Function
     Properties:
