@@ -36,7 +36,7 @@ export default function ChatbotHeader({
     {
       name: "Chat",
       href: `/chatbot/${chatbotId}/chat`,
-      current: isChatPage,
+      current: isChatPage && !isDataSourcePage,
     },
     {
       name: "Data Source",
@@ -90,36 +90,31 @@ export default function ChatbotHeader({
                 <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                   {chatbotName}
                 </h1>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(true)}
-                  className="rounded-md p-1 text-gray-400 hover:text-gray-500 dark:text-gray-500 dark:hover:text-gray-400"
-                  title="Edit Name"
-                >
-                  <PencilIcon className="h-4 w-4" />
-                </button>
               </div>
             )}
           </div>
 
-          <div className="flex items-center space-x-4">
-            <nav className="flex space-x-4" aria-label="Tabs">
-              {tabs.map((tab) => (
+          <div className="flex items-center">
+            <div className="flex items-center border-b border-gray-200 dark:border-gray-700">
+              {tabs.map((tab, index) => (
                 <Link
                   key={tab.name}
                   href={tab.href}
-                  className={`rounded-md px-3 py-2 text-sm font-medium ${
+                  className={`relative px-4 py-3 text-sm font-medium transition-colors duration-200 ${
                     tab.current
-                      ? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-white"
+                      ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
                   }`}
                 >
                   {tab.name}
+                  {tab.current && (
+                    <span className="absolute inset-x-0 -bottom-px h-0.5 bg-blue-500" />
+                  )}
                 </Link>
               ))}
-            </nav>
+            </div>
 
-            <div className="flex items-center space-x-2">
+            <div className="ml-4 flex items-center space-x-2">
               <button
                 type="button"
                 onClick={onEdit}

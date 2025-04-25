@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { Card } from "@/app/components/ui/Card";
 import S3Upload from "../../../components/s3upload/index";
-import WebCrawlerConfig from "./WebCrawlerConfig";
+import WebCrawlerConfig from "./webCrawlerConfig";
+import ChatbotHeader from "../ChatBotHeader";
 import { useParams } from "next/navigation";
 import { useAppSelector } from "@/app/store/store";
+
 type DataSourceType = "s3" | "web";
 
 export default function DataSourcePage() {
@@ -21,12 +23,10 @@ export default function DataSourcePage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+      <ChatbotHeader chatbotName="Data Source" chatbotId={id as string} />
+
       <div className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-            Configure Data Source
-          </h1>
-
           <Card>
             <div className="space-y-6">
               {error && (

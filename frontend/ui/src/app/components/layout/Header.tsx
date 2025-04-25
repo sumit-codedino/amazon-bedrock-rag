@@ -15,7 +15,14 @@ import {
 import { useEffect, useState } from "react";
 
 import { useAppDispatch } from "@/app/store/store";
-import { setToken, setUserId } from "@/app/store/slices/userSlice";
+import {
+  setToken,
+  setUserId,
+  setKnowledgeBaseId,
+  setS3DataSourceId,
+  setWebDataSourceId,
+} from "@/app/store/slices/userSlice";
+import { getUserDetails } from "@/apis/get-user-details";
 
 interface HeaderProps {
   navigationItems?: {
@@ -48,6 +55,17 @@ export const Header = ({ navigationItems = [] }: HeaderProps) => {
         const token = await getToken();
         dispatch(setToken(token || ""));
         dispatch(setUserId(user?.id || ""));
+        const userDetails = await getUserDetails(user?.id || "");
+        if (userDetails.isError) {
+          console.error("Error fetching user details:", userDetails.error);
+        } else {
+          console.log("User details:", userDetails.data);
+          dispatch(setKnowledgeBaseId(userDetails.data.knowledgeBaseId || ""));
+          dispatch(setS3DataSourceId(userDetails.data.s3DataSourceId || ""));
+          dispatch(
+            setWebDataSourceId(userDetails.data.webCrawlerDataSourceId || "")
+          );
+        }
         setIsInitialized(true);
       } else if (!isSignedIn) {
         setIsInitialized(true);
@@ -82,7 +100,7 @@ export const Header = ({ navigationItems = [] }: HeaderProps) => {
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
               <Link
-                href="/"
+                href={isSignedIn ? "/chatbots" : "/"}
                 className="text-xl font-bold text-blue-600 dark:text-blue-400"
               >
                 CodeDino
